@@ -17,10 +17,10 @@ Misinformation rarely exists as a simple text classification problem. Fact-check
 ## 🧩 Spaces
 
 **Observation Space**: 
-A flat `np.ndarray` of length 403.
-- `[0-383]`: SentenceTransformer embedding of the current claim graph's root text
-- `[384-396]`: One-hot encoded action history bounds (how many times each tool has been executed)
-- `[397-402]`: Active graph scalars (`evidence_coverage`, `source_diversity`, `contradiction_count`, `manipulation_flagged`, `budget_remaining`, `steps_used_ratio`)
+A flat `np.ndarray` of length 3859.
+- `[0-3839]`: Multimodal embedding matrix holding representations for up to 10 discovered nodes simultaneously.
+- `[3840-3852]`: One-hot encoded action history bounds (how many times each tool has been executed).
+- `[3853-3858]`: Active graph scalars (`evidence_coverage`, `source_diversity`, `contradiction_count`, `manipulation_flagged`, `budget_remaining`, `steps_used_ratio`).
 
 **Action Space**: `Discrete(13)`
 Agents select an integer index corresponding to available structural tools:
@@ -35,11 +35,14 @@ Agents select an integer index corresponding to available structural tools:
 - 8-12: Verdict submission (`real`, `misinfo`, `satire`, `out_of_context`, `fabricated`)
 
 ## 📋 Tasks
-FORGE dynamically routes across three distinct procedurally generated misinformation typologies. The user can scale difficulty `[1-4]` which controls the compounding rate of applied adversarial tactics.
+FORGE dynamically routes across six distinct domain tasks ranging from structured procedural topologies to real-world datasets:
 
 1. **`fabricated_stats`** (Easy): A structurally sound claim is injected with a purely fabricated integer or percentage. Resolution usually requires `entity_link` + `cross_reference`.
 2. **`out_of_context`** (Medium): A real quote or image is stripped of its date and re-anchored. Resolution requires `trace_origin` + `temporal_audit`.
 3. **`coordinated_campaign`** (Hard): A network-distributed attack masking source credibility. Resolution rigorously demands `network_cluster` analysis.
+4. **`politifact_liar`** (Real-World): Sources historical claims directly from the open-source LIAR dataset (Wang, 2017). Agent must fact-check real political assertions against expert grounding.
+5. **`image_forensics`** (Multimodal Simulation): Tracks diffusion signatures and ELA artifacts for deepfake detection versus generic miscontextualization. 
+6. **`sec_fraud`** (Financial): Enforces regulatory forensic checks bounding corporate public relations announcements against SEC EDGAR 10-K and 8-K filings.
 
 ## Setup & Execution
 
@@ -70,12 +73,10 @@ Open `frontend/visualizer.html` in your browser to watch the RL agents graphical
 
 ## 📊 Baseline Scores (LLM Hybrid — Groq Free-Tier)
 
-| Task | Accuracy | Mean Reward | Fallback Rate |
+| Task | Reasoning Output | Resilience | Offline Grading |
 |------|-----------|-------------|---------------|
-| `fabricated_stats` | 0.3333 | 0.8312 | >90% | 
-| `out_of_context` | 0.3333 | 0.8312 | >90% |
-| `coordinated_campaign` | 0.3333 | 0.8312 | >90% |
+| `All Six Tasks` | Pure ReAct | Tenacity Backoff | Supported | 
 
 *Note: All inference rewards are natively bounded to strictly `0.0-1.0` as per OpenEnv spec requirement.* 
 
-> **Why `33.3%`?** When running this environment locally via a free-tier proxy (e.g. Groq), the LLM agent frequently encounters `HTTP 429: Too Many Requests` rate limits attempting to quickly evaluate graph states across the batch. FORGE is robustly designed to silently catch these limits and engage the mathematically deterministic `HeuristicAgent`. This prevents grader pipeline crashes and guarantees a "Golden Score" (`0.33`) that operates efficiently above random chance (`0.20`), serving as the perfect launchpad for RL teams to optimize.
+> **v2.0 Update details:** The legacy `HeuristicAgent` fallback has been completely removed in favor of a rigid pure ReAct baseline. To protect against `HTTP 429` API rate limits, the agent utilizes a robust `tenacity` exponential backoff strategy. Furthermore, a new SQLite caching layer transparently wraps all external HTTP tool calls ensuring that, with `INTERNET_OFF=true`, grader pipelines can reliably test the environment deterministically without encountering API quota drops.
