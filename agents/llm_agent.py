@@ -120,7 +120,7 @@ class LLMAgent:
             from openai import OpenAI
             self._openai_client = OpenAI(
                 base_url=config.API_BASE_URL,
-                api_key=config.OPENAI_API_KEY or "dummy-key"
+                api_key=config.HF_TOKEN or config.OPENAI_API_KEY or "dummy-key"
             )
             logger.info("OpenAI client initialised with base_url=%s", config.API_BASE_URL)
         except ImportError:

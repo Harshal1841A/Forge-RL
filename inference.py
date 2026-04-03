@@ -25,11 +25,13 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
     from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
     from agents.llm_agent import LLMAgent
 
+    from env.tasks import TASK_REGISTRY
+
     # Required specification: must use LLMAgent configured to standard endpoints
-    agent = LLMAgent(fallback_to_heuristic=True)
+    agent = LLMAgent()
     results = []
     
-    tasks = ["fabricated_stats", "out_of_context", "coordinated_campaign"]
+    tasks = list(TASK_REGISTRY.keys())
 
     for task_idx, task_name in enumerate(tasks):
         # We instantiate a specific task environment for reproducibility
