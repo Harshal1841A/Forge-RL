@@ -1,3 +1,12 @@
+---
+title: FORGE Misinformation RL
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # 🛡️ FORGE: Forensic RL Graph Environment
 
 An OpenEnv-compliant Reinforcement Learning simulation for training agents to investigate misinformation graphs.
