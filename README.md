@@ -85,6 +85,6 @@ Run `python scripts/inference.py --episodes 2` to reproduce results.
 | `sec_fraud` | 0% | 0.410 | ReAct + Heuristic | ✅ Supported |
 | **All Tasks (Heuristic Baseline)** | **16.7%** | **0.406** | Heuristic only | ✅ Supported |
 
-*Note: The environment employs an unclamped reward strategy. Negative penalties (such as from false accusations of manipulation) are fully retained rather than artificially floored at 0.0, ensuring proper policy gradients during RL training. Results above reflect the offline heuristic-only baseline (no Groq API key required). With a live LLM key, accuracy increases significantly.*
+*Note: Per openenv validation requirements, all step and baseline rewards are strictly clamped to the [0.0, 1.0] range.*
 
 > ** Architecture:** The primary agent is a pure ReAct LLM investigator backed by `tenacity` exponential backoff to handle Groq free-tier rate limits. A deterministic heuristic fallback engages automatically when the LLM is unavailable or within 2 steps of the budget limit, preventing timeouts in grading pipelines. A persistent SQLite caching layer wraps all external HTTP tool calls, ensuring that with `INTERNET_OFF=true` the environment runs fully deterministically without API quota failures.
