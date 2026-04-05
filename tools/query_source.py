@@ -39,12 +39,12 @@ class QuerySourceTool:
         new_contradictions = 0
         if fc_result.get("rating") in ("FALSE", "MISLEADING", "MOSTLY FALSE"):
             new_contradictions += 1
-            for edge in graph.edges:
-                if not edge.discovered and edge.relation in ("contradicts", "debunks"):
-                    edge.discovered = True
 
         graph.mark_retrieved(root.node_id)
-        graph.discover_edges_from(root.node_id)
+        # Use the official API — previously there was a redundant direct edge mutation here
+        # that bypassed discover_edges_from() and caused double-mutation
+        revealed = graph.discover_edges_from(root.node_id)
+        new_contradictions += sum(1 for e in revealed if e.relation in ("contradicts", "debunks"))
 
         return {
             "domain": root.domain,

@@ -3,7 +3,7 @@ FORGE — Forensic RL Graph Environment
 Global Configuration (100% free-tier / open-source)
 """
 
-from dataclasses import dataclass, field
+# dataclasses import removed — was only used incorrectly for POLICY_HIDDEN_DIMS
 from typing import List, Optional
 import os
 
@@ -42,7 +42,7 @@ REWARD_DUPLICATE_TOOL_PENALTY: float = -0.05
 POTENTIAL_W1: float = 0.4   # evidence coverage weight
 POTENTIAL_W2: float = 0.3   # source diversity weight
 POTENTIAL_W3: float = 0.2   # contradiction surface area
-POTENTIAL_W4: float = 0.1   # duplicate query penalty
+POTENTIAL_W4: float = 0.1   # reserved / network diameter (not currently used in potential fn)
 
 # ─── RL Training ──────────────────────────────────────────────────────────────
 PPO_LR: float = 3e-4
@@ -62,7 +62,7 @@ GNN_NUM_LAYERS: int = 3
 GNN_HEADS: int = 4               # for GAT
 CLAIM_EMBED_DIM: int = 384       # all-MiniLM output dim
 MAX_OBSERVATION_NODES: int = 10  # max graph nodes embedded in v2.0 multimodal obs
-POLICY_HIDDEN_DIMS: List[int] = field(default_factory=lambda: [256, 128])
+POLICY_HIDDEN_DIMS: List[int] = [256, 128]
 
 # ─── Curriculum ───────────────────────────────────────────────────────────────
 CURRICULUM_STAGES: List[dict] = [

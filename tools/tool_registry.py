@@ -9,10 +9,8 @@ import asyncio
 import json
 import logging
 import os
-import random
 import sqlite3
-import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import config
 from env.claim_graph import ClaimGraph
@@ -175,6 +173,8 @@ class ToolRegistry:
             "temporal_audit":  TemporalAuditTool(),
             "network_cluster": NetworkClusterTool(),
         }
+        # Singleton fallback for offline mode — created once, not per-call
+        self._sim = SimulatedToolRegistry()
         
         db_path = config.DATABASE_URL.replace("sqlite:///", "")
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
@@ -185,7 +185,9 @@ class ToolRegistry:
         self._conn.commit()
 
     def call(self, tool_name: str, graph: ClaimGraph, **kwargs) -> Dict[str, Any]:
-        cache_key = f"{tool_name}:{graph.graph_id}:{graph.steps_used if hasattr(graph, 'steps_used') else 0}"
+        # Keyed by tool + root claim + graph state hash — fixes stale-result bug where
+        # all steps in the same episode shared the same cache key (old: step always = 0)
+        cache_key = f"{tool_name}:{graph.root_claim_id}:{graph.wl_hash()}"
         
         self._cursor.execute("SELECT result_json FROM tool_cache WHERE cache_key = ?", (cache_key,))
         row = self._cursor.fetchone()
@@ -203,17 +205,20 @@ class ToolRegistry:
         try:
             if os.getenv("INTERNET_OFF", "false").lower() == "true":
                 logger.debug(f"INTERNET_OFF is true, simulating {tool_name}")
-                result = SimulatedToolRegistry().call(tool_name, graph, **kwargs)
+                result = self._sim.call(tool_name, graph, **kwargs)
             else:
                 try:
                     result = asyncio.run(tool.execute(graph, **kwargs))
                 except RuntimeError:
+                    # Already inside a running event loop (e.g. FastAPI / Jupyter)
                     loop = asyncio.new_event_loop()
-                    result = loop.run_until_complete(tool.execute(graph, **kwargs))
-                    loop.close()
+                    try:
+                        result = loop.run_until_complete(tool.execute(graph, **kwargs))
+                    finally:
+                        loop.close()   # guaranteed close even on exception
         except Exception as e:
             logger.error(f"Tool execution failed: {e}")
-            result = SimulatedToolRegistry().call(tool_name, graph, **kwargs)
+            result = self._sim.call(tool_name, graph, **kwargs)
 
         try:
             self._cursor.execute(

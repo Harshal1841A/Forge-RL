@@ -51,8 +51,12 @@ def train(args: argparse.Namespace) -> None:
         # ── Collect rollout ────────────────────────────────────────────────────
         rollout_stats = agent.collect_rollout(env)
 
-        # Record rewards for curriculum gating
-        for r in list(agent.ep_rewards):
+        # Record ONLY the new episode rewards from this rollout — previously the entire
+        # ep_rewards rolling window was pushed every iteration, causing duplicate values
+        # in the curriculum window and premature stage advancement.
+        n_new = rollout_stats.get("episodes", 1)
+        new_ep_rewards = list(agent.ep_rewards)[-n_new:]
+        for r in new_ep_rewards:
             curriculum.record_episode_reward(r)
         curriculum.check_progression()
 

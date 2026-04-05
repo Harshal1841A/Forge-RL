@@ -136,7 +136,8 @@ class PolitifactTask(BaseTask):
             timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 90)),
             author=speaker,
             virality_score=rng.uniform(0.4, 0.9),
-            trust_score=0.9,   # PolitiFact is a high-trust source
+            trust_score=0.5,   # The CLAIM's credibility is unknown at start, not PolitiFact's
+                               # (was incorrectly 0.9 — that's the reporter's credibility, not the claim)
             metadata={"subject": subject, "party": party, "liar_label": liar_label},
         )
 

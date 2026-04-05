@@ -76,8 +76,8 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
             true_label = env.graph.true_label if env.graph else "unknown"
             correct    = (verdict == true_label)
             
-            # Clip ep_reward to 0.0 - 1.0 constraint for the whole payload if it drifted
-            clamped_ep_reward = max(0.0, min(1.0, float(ep_reward)))
+            # Emit actual unclamped reward allowing negative penalties to be fully scored
+            final_reward = float(ep_reward)
 
             # [END] emit
             result = {
@@ -85,7 +85,7 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
                 "verdict":    verdict,
                 "true_label": true_label,
                 "correct":    correct,
-                "reward":     round(clamped_ep_reward, 4),
+                "reward":     round(final_reward, 4),
                 "steps":      env.steps,
                 "time_s":     round(elapsed, 2),
             }

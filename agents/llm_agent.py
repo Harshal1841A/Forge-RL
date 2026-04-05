@@ -150,13 +150,18 @@ class LLMAgent:
         if steps_used >= max_steps - 2 or self._fsm_state in ("SYNTHESISING", "VERDICT_PENDING"):
             contradictions = context.get('contradictions', 0) if context else 0
             coverage = context.get('coverage', 0.0) if context else 0.0
-            
-            if contradictions > 0:
-                verdict = "submit_verdict_fabricated"
-            elif coverage > 0.5:
-                verdict = "submit_verdict_real"
+
+            # Graduated 5-class verdict logic — previously always picked 'fabricated' for any contradiction
+            if contradictions >= 3:
+                verdict = "submit_verdict_fabricated"   # strong multi-contradiction signal
+            elif contradictions >= 1 and coverage > 0.4:
+                verdict = "submit_verdict_misinfo"      # clear misinformation with evidence
+            elif contradictions >= 1:
+                verdict = "submit_verdict_out_of_context"  # weak contradiction, low coverage
+            elif coverage > 0.7:
+                verdict = "submit_verdict_real"         # high coverage, no contradictions
             else:
-                verdict = "submit_verdict_misinfo"
+                verdict = "submit_verdict_misinfo"      # conservative default
                 
             if verdict in allowed:
                 return ACTIONS.index(verdict)
@@ -226,6 +231,9 @@ class LLMAgent:
             think  = data.get("think", "")
             predict = data.get("predict", "")
             self._history.append({"think": think, "predict": predict, "action": action})
+            # Cap history to avoid unbounded memory growth across long runs
+            if len(self._history) > 20:
+                self._history = self._history[-20:]
             if action in allowed:
                 return action
             for a in allowed:

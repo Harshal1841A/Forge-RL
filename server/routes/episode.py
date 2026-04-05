@@ -1,6 +1,7 @@
 """Episode creation and state routes (OpenEnv spec)."""
 
 from __future__ import annotations
+import logging
 import random
 import uuid
 from typing import Optional
@@ -11,6 +12,7 @@ from env.misinfo_env import MisInfoForensicsEnv
 from server.schemas import ResetRequest, ResetResponse, StateRequest, StateResponse
 from server.state import EPISODE_STORE
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -25,6 +27,15 @@ async def reset_env(req: ResetRequest):
         )
         seed = req.seed or random.randint(0, 2**31)
         obs, info = env.reset(seed=seed)
+
+        # Max-size eviction to prevent memory leak on long-running servers.
+        # In production, replace EPISODE_STORE with Redis (see server/state.py).
+        MAX_EPISODES = 500
+        non_meta_keys = [k for k in EPISODE_STORE if k != "latest"]
+        if len(non_meta_keys) >= MAX_EPISODES:
+            oldest = non_meta_keys[0]   # dict insertion order preserved in Python 3.7+
+            del EPISODE_STORE[oldest]
+            logger.debug("Evicted episode %s from store (limit=%d)", oldest, MAX_EPISODES)
 
         episode_id = info["episode_id"]
         EPISODE_STORE[episode_id] = {

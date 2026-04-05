@@ -26,7 +26,8 @@ class NetworkClusterTool:
         bot_nodes = self._detect_bot_nodes(graph)
         clusters = self._find_clusters(graph, bot_nodes)
         amplification_ratio = self._compute_amplification_ratio(graph)
-        coordinated = len(clusters) > 0 and amplification_ratio > 2.0
+        # amplification_ratio is bounded [0, 1] — threshold must be reachable
+        coordinated = len(clusters) > 0 and amplification_ratio > 0.5
 
         # Reveal all bot nodes in graph
         new_nodes = 0

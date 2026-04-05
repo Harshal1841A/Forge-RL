@@ -28,7 +28,15 @@ def main():
     args = parser.parse_args()
 
     from env.misinfo_env import MisInfoForensicsEnv
-    from agents.adversarial.self_play import SelfPlayTrainer
+    try:
+        from agents.adversarial.self_play import SelfPlayTrainer
+    except ImportError:
+        logger.error(
+            "SelfPlayTrainer not found — agents/adversarial/self_play.py has not been "
+            "implemented yet. Stub it or implement the full class before running self-play. "
+            "See scripts/run_selfplay.py for the expected API."
+        )
+        raise SystemExit(1)
 
     env = MisInfoForensicsEnv()
     obs_dim = env.observation_space.shape[0]

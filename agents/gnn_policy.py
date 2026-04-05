@@ -12,7 +12,7 @@ Falls back to MLP if torch_geometric is unavailable.
 
 from __future__ import annotations
 import logging
-from typing import Tuple
+from typing import Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
@@ -151,6 +151,36 @@ class GATPolicy(nn.Module):
         logits = self.actor(h)
         value  = self.critic(h).squeeze(-1)
         return logits, value
+
+    def get_action(
+        self,
+        obs: np.ndarray,
+        node_features: Optional[torch.Tensor] = None,
+        edge_index: Optional[torch.Tensor] = None,
+        batch: Optional[torch.Tensor] = None,
+        deterministic: bool = False,
+    ):
+        """Mirrors MLPPolicy.get_action() for API compatibility with PPOAgent.
+        When graph data is not supplied (flat-obs mode), falls back to zero-graph embedding.
+        """
+        with torch.no_grad():
+            t = torch.FloatTensor(obs).unsqueeze(0)  # [1, obs_dim]
+            n_nodes = 1
+            if node_features is None:
+                # Fallback: single zero-node graph (no structural info)
+                node_features = torch.zeros(n_nodes, self.node_feat_dim)
+                edge_index = torch.zeros(2, 0, dtype=torch.long)
+                batch = torch.zeros(n_nodes, dtype=torch.long)
+            logits, value = self.forward(t, node_features, edge_index, batch)
+            if deterministic:
+                action = logits.argmax(dim=-1).item()
+                log_prob = torch.tensor(0.0)
+            else:
+                dist = torch.distributions.Categorical(logits=logits)
+                action_t = dist.sample()
+                log_prob = dist.log_prob(action_t)
+                action = action_t.item()
+        return action, log_prob.item(), value.squeeze(-1).item()
 
 
 # ─── Factory ──────────────────────────────────────────────────────────────────

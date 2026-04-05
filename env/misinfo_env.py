@@ -205,7 +205,7 @@ class MisInfoForensicsEnv(gym.Env):
                 true_manipulation=self.current_task.has_manipulation(self.graph),
             )
             terminal_r += efficiency_penalty(self.steps, self.graph.difficulty)
-            reward = max(0.0, min(1.0, float(terminal_r)))
+            reward = float(terminal_r)  # keep negative signal intact — do NOT clamp
             terminated = True
             self._done = True
             info.update({
@@ -250,7 +250,7 @@ class MisInfoForensicsEnv(gym.Env):
             reward += -0.3
             logger.info("[END] %s truncated at step %d", self.episode_id, self.steps)
 
-        reward = max(0.0, min(1.0, float(reward)))
+        reward = float(reward)  # keep negative signal intact — do NOT clamp
 
         logger.info("[STEP] %s step=%d action=%s reward=%.4f nodes+=%d",
                     self.episode_id, self.steps, action_name, reward, new_nodes)

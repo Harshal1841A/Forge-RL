@@ -85,6 +85,11 @@ class ClaimGraph:
 
     @property
     def root(self) -> ClaimNode:
+        if self.root_claim_id not in self.nodes:
+            raise RuntimeError(
+                f"ClaimGraph.root: root_claim_id '{self.root_claim_id}' not found. "
+                f"Available node IDs: {list(self.nodes.keys())}"
+            )
         return self.nodes[self.root_claim_id]
 
     @property

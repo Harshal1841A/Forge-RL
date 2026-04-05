@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F   # moved to top — was erroneously imported at line 208 after first use
 import torch.optim as optim
 
 from agents.gnn_policy import build_policy, MLPPolicy
@@ -205,7 +206,6 @@ class PPOAgent:
         self.buffer.ptr = 0
         self.buffer.full = False
 
-        import torch.nn.functional as F
         return {
             "pg_loss":    float(np.mean(pg_losses)),
             "vf_loss":    float(np.mean(vf_losses)),
@@ -221,10 +221,11 @@ class PPOAgent:
     def save(self, path: str) -> None:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save({
-            "policy_state": self.policy.state_dict(),
+            "policy_state":    self.policy.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
-            "total_steps": self.total_steps,
-            "updates": self.updates,
+            "scheduler_state": self.scheduler.state_dict(),   # added — prevents LR restart on resume
+            "total_steps":     self.total_steps,
+            "updates":         self.updates,
         }, path)
         logger.info("Saved PPO checkpoint → %s", path)
 
@@ -232,6 +233,8 @@ class PPOAgent:
         ckpt = torch.load(path, map_location=self.device)
         self.policy.load_state_dict(ckpt["policy_state"])
         self.optimizer.load_state_dict(ckpt["optimizer_state"])
+        if "scheduler_state" in ckpt:       # backward-compatible with old checkpoints
+            self.scheduler.load_state_dict(ckpt["scheduler_state"])
         self.total_steps = ckpt.get("total_steps", 0)
         self.updates     = ckpt.get("updates", 0)
         logger.info("Loaded PPO checkpoint ← %s (step %d)", path, self.total_steps)
