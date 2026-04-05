@@ -1,6 +1,29 @@
 #!/usr/bin/env bash
 #
 # validate-submission.sh — OpenEnv Submission Validator
+#
+# Checks that your HF Space is live, Docker image builds, and openenv validate passes.
+#
+# Prerequisites:
+#   - Docker:       https://docs.docker.com/get-docker/
+#   - openenv-core: pip install openenv-core
+#   - curl (usually pre-installed)
+#
+# Run:
+#   curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/validate-submission.sh | bash -s -- <ping_url> [repo_dir]
+#
+#   Or download and run locally:
+#     chmod +x validate-submission.sh
+#     ./validate-submission.sh <ping_url> [repo_dir]
+#
+# Arguments:
+#   ping_url   Your HuggingFace Space URL (e.g. https://your-space.hf.space)
+#   repo_dir   Path to your repo (default: current directory)
+#
+# Examples:
+#   ./validate-submission.sh https://my-team.hf.space
+#   ./validate-submission.sh https://my-team.hf.space ./my-repo
+#
 
 set -uo pipefail
 
@@ -30,7 +53,7 @@ run_with_timeout() {
     local rc=$?
     kill "$watcher" 2>/dev/null
     wait "$watcher" 2>/dev/null
- return $rc
+    return $rc
   fi
 }
 
@@ -51,7 +74,7 @@ if [ -z "$PING_URL" ]; then
   printf "\n"
   printf "  ping_url   Your HuggingFace Space URL (e.g. https://your-space.hf.space)\n"
   printf "  repo_dir   Path to your repo (default: current directory)\n"
-exit 1
+  exit 1
 fi
 
 if ! REPO_DIR="$(cd "$REPO_DIR" 2>/dev/null && pwd)"; then
@@ -71,6 +94,7 @@ stop_at() {
   printf "${RED}${BOLD}Validation stopped at %s.${NC} Fix the above before continuing.\n" "$1"
   exit 1
 }
+
 printf "\n"
 printf "${BOLD}========================================${NC}\n"
 printf "${BOLD}  OpenEnv Submission Validator${NC}\n"
@@ -92,52 +116,55 @@ if [ "$HTTP_CODE" = "200" ]; then
 elif [ "$HTTP_CODE" = "000" ]; then
   fail "HF Space not reachable (connection failed or timed out)"
   hint "Check your network connection and that the Space is running."
-hint "Try opening $PING_URL in your browser first."
+  hint "Try: curl -s -o /dev/null -w '%%{http_code}' -X POST $PING_URL/reset"
+  stop_at "Step 1"
+else
+  fail "HF Space /reset returned HTTP $HTTP_CODE (expected 200)"
+  hint "Make sure your Space is running and the URL is correct."
+  hint "Try opening $PING_URL in your browser first."
   stop_at "Step 1"
 fi
 
 log "${BOLD}Step 2/3: Running docker build${NC} ..."
 
 if ! command -v docker &>/dev/null; then
-  fail "Docker not installed locally. Cannot verify container build."
+  fail "docker command not found"
   hint "Install Docker: https://docs.docker.com/get-docker/"
   stop_at "Step 2"
+fi
+
+if [ -f "$REPO_DIR/Dockerfile" ]; then
+  DOCKER_CONTEXT="$REPO_DIR"
+elif [ -f "$REPO_DIR/server/Dockerfile" ]; then
+  DOCKER_CONTEXT="$REPO_DIR/server"
 else
-  if [ -f "$REPO_DIR/Dockerfile" ]; then
-    DOCKER_CONTEXT="$REPO_DIR"
-  elif [ -f "$REPO_DIR/server/Dockerfile" ]; then
-    DOCKER_CONTEXT="$REPO_DIR/server"
-  else
-    fail "No Dockerfile found in repo root or server/ directory"
-    stop_at "Step 2"
-  fi
-  log "  Found Dockerfile in $DOCKER_CONTEXT"
+  fail "No Dockerfile found in repo root or server/ directory"
+  stop_at "Step 2"
+fi
 
-  BUILD_OK=false
-  BUILD_OUTPUT=$(run_with_timeout "$DOCKER_BUILD_TIMEOUT" docker build "$DOCKER_CONTEXT" 2>&1) && BUILD_OK=true
+log "  Found Dockerfile in $DOCKER_CONTEXT"
 
-  if [ "$BUILD_OK" = true ]; then
-    pass "Docker build succeeded"
-  else
-    fail "Docker build failed (timeout=${DOCKER_BUILD_TIMEOUT}s)"
-    printf "%s\n" "$BUILD_OUTPUT" | tail -20
-    stop_at "Step 2"
-  fi
+BUILD_OK=false
+BUILD_OUTPUT=$(run_with_timeout "$DOCKER_BUILD_TIMEOUT" docker build "$DOCKER_CONTEXT" 2>&1) && BUILD_OK=true
+
+if [ "$BUILD_OK" = true ]; then
+  pass "Docker build succeeded"
+else
+  fail "Docker build failed (timeout=${DOCKER_BUILD_TIMEOUT}s)"
+  printf "%s\n" "$BUILD_OUTPUT" | tail -20
+  stop_at "Step 2"
 fi
 
 log "${BOLD}Step 3/3: Running openenv validate${NC} ..."
 
-log "  Testing API endpoints remotely..."
-VALIDATE_OK=false
-VALIDATE_OUTPUT=""
-
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$PING_URL/health")
-if [ "$HTTP_CODE" = "200" ]; then
-  VALIDATE_OK=true
-  VALIDATE_OUTPUT="Successfully validated endpoints /health and /reset."
-else
-  VALIDATE_OUTPUT="Failed to reach OpenEnv endpoints (HTTP $HTTP_CODE)."
+if ! command -v openenv &>/dev/null; then
+  fail "openenv command not found"
+  hint "Install it: pip install openenv-core"
+  stop_at "Step 3"
 fi
+
+VALIDATE_OK=false
+VALIDATE_OUTPUT=$(cd "$REPO_DIR" && openenv validate 2>&1) && VALIDATE_OK=true
 
 if [ "$VALIDATE_OK" = true ]; then
   pass "openenv validate passed"
