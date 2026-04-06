@@ -111,8 +111,8 @@ class PolitifactTask(BaseTask):
         rows = _get_liar_rows()
 
         if rows:
-            # Seed-reproducible claim selection
-            claim_data = rows[seed % len(rows)]
+            # Seed-reproducible but uniformly distributed claim selection
+            claim_data = rng.choice(rows)
         else:
             # Fallback to synthetic
             claim_data = rng.choice(_FALLBACK_CLAIMS)

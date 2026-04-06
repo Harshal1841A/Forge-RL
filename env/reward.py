@@ -36,9 +36,16 @@ def shaped_step_reward(
 ) -> float:
     """
     r_shaped = r_base + γ·Φ(s') - Φ(s)
-    Guarantees no change to optimal policy.
+    Guarantees no change to optimal policy (Ng et al., 1999).
+
+    Note: the env clips the return value to [0, 1]. To prevent asymmetric
+    clipping from biasing value estimates upward, we floor the shaping term
+    at REWARD_STEP_PENALTY so excessive negative shaping is bounded.
     """
-    return base_reward + gamma * compute_potential(curr_graph) - compute_potential(prev_graph)
+    shaping = gamma * compute_potential(curr_graph) - compute_potential(prev_graph)
+    # Floor shaping to avoid extreme negatives that get asymmetrically clipped
+    shaping = max(shaping, config.REWARD_STEP_PENALTY * 2)
+    return base_reward + shaping
 
 
 # ─── Terminal Verdict Reward ──────────────────────────────────────────────────
@@ -84,10 +91,10 @@ def verdict_reward(
     # ── Manipulation component ────────────────────────────────────────────────
     manip_reward = 0.0
     if true_manipulation:
-        manip_reward = config.REWARD_MANIPULATION_FLAG if manipulation_flagged else -0.1
+        manip_reward = config.REWARD_MANIPULATION_FLAG if manipulation_flagged else config.REWARD_MANIPULATION_PENALTY
     else:
         # Penalise false manipulation flags
-        manip_reward = -0.1 if manipulation_flagged else 0.0
+        manip_reward = config.REWARD_MANIPULATION_PENALTY if manipulation_flagged else 0.0
 
     total = base + calibration_bonus + efficiency_bonus + manip_reward
     return round(total, 4)
@@ -121,4 +128,5 @@ def efficiency_penalty(steps_used: int, difficulty: int) -> float:
     """
     base_budget = config.BASE_EPISODE_STEPS + difficulty * config.STEP_COMPLEXITY_BONUS
     excess = max(0, steps_used - base_budget)
-    return -0.02 * excess / max(difficulty, 1)
+    return config.REWARD_STEP_PENALTY * excess / max(difficulty, 1)
+

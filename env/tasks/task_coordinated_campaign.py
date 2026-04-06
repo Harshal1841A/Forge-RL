@@ -134,10 +134,11 @@ class CoordinatedCampaignTask(BaseTask):
                 edge_id=f"e_{node_prefix}_{i}", src_id=root_id, tgt_id=bot_id,
                 relation="amplifies", weight=rng.uniform(0.8, 1.0),
             ))
-            # Co-share network
+            # Co-share network — use the correct prefix for the previous node
             if i > 0:
+                prev_node_id = f"node_{node_prefix}_{i - 1}"
                 graph.add_edge(EvidenceEdge(
-                    edge_id=f"e_cross_{i}", src_id=bot_id, tgt_id=f"node_bot_{i-1}",
+                    edge_id=f"e_cross_{i}", src_id=bot_id, tgt_id=prev_node_id,
                     relation="co_published", weight=rng.uniform(0.7, 0.95),
                 ))
             bot_ids.append(bot_id)

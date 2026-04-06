@@ -74,6 +74,7 @@ class MisInfoForensicsEnv(gym.Env):
         use_live_tools: bool = False,   # False = simulated tools (no API needed)
         render_mode: str = "json",
         curriculum_stage: int = 0,
+        budget_multiplier: float = 1.0,
     ):
         super().__init__()
         self.task_names = task_names or list(TASK_REGISTRY.keys())
@@ -114,6 +115,7 @@ class MisInfoForensicsEnv(gym.Env):
         self.manipulation_flagged: bool = False
         self.tool_call_counts: Dict[str, int] = {}
         self.episode_id: str = ""
+        self.budget_multiplier: float = budget_multiplier
         self._prev_potential: float = 0.0
         self._tool_history: np.ndarray = np.zeros(N_ACTIONS, dtype=np.float32)
         self._done: bool = True
@@ -138,15 +140,19 @@ class MisInfoForensicsEnv(gym.Env):
             difficulty=self.difficulty, seed=ep_seed
         )
 
-        # Dynamic step budget
+        # Dynamic step budget — scaled by curriculum budget multiplier
         self.max_steps = min(
-            config.BASE_EPISODE_STEPS
-            + self.graph.num_tactics * config.STEP_COMPLEXITY_BONUS,
+            int(
+                (config.BASE_EPISODE_STEPS
+                 + self.graph.num_tactics * config.STEP_COMPLEXITY_BONUS)
+                * self.budget_multiplier
+            ),
             config.MAX_EPISODE_STEPS,
         )
 
         self.steps = 0
         self.manipulation_flagged = False
+        self.manipulation_flag_count = 0  # NEW: limit free hits
         self.tool_call_counts = {}
         self.episode_id = str(uuid.uuid4())
         self._tool_history = np.zeros(N_ACTIONS, dtype=np.float32)
@@ -184,13 +190,18 @@ class MisInfoForensicsEnv(gym.Env):
         # ── Free actions (no step cost) ───────────────────────────────────────
         if action_name == "flag_manipulation":
             self.manipulation_flagged = True
-            self.steps += 1  # Fix infinite loop bug
-            reward = 0.0   # reward only at terminal
+            self.steps += 1
+            reward = 0.0
             info["flagged"] = True
             logger.info("[STEP] %s step=%d action=flag_manipulation",
                         self.episode_id, self.steps)
+            # Check truncation — must happen even for free actions
+            truncated = self.steps >= self.max_steps
+            if truncated:
+                self._done = True
+                logger.info("[END] %s truncated at step %d", self.episode_id, self.steps)
             obs = self._build_obs()
-            return obs, reward, False, False, info
+            return obs, reward, False, truncated, info
 
         # ── Verdict actions ───────────────────────────────────────────────────
         if action in VERDICT_ACTIONS:
@@ -206,8 +217,11 @@ class MisInfoForensicsEnv(gym.Env):
                 true_manipulation=self.current_task.has_manipulation(self.graph),
             )
             terminal_r += efficiency_penalty(self.steps, self.graph.difficulty)
-            # Hackathon requirement: reward must be in 0.0-1.0 range
-            reward = float(np.clip(terminal_r, 0.0, 1.0))
+            
+            # RL hardening: return raw reward for internal logic, but clip for the Gym interface
+            info["raw_reward"] = terminal_r
+            reward = float(np.clip(terminal_r, config.REWARD_CLIP_MIN, config.REWARD_CLIP_MAX))
+            
             terminated = True
             self._done = True
             info.update({
@@ -241,7 +255,7 @@ class MisInfoForensicsEnv(gym.Env):
             new_contradictions=new_contradictions,
             is_duplicate_call=is_dup,
         )
-        reward = shaped_step_reward(prev_graph, self.graph, base_r)
+        raw_r = shaped_step_reward(prev_graph, self.graph, base_r)
         self._prev_potential = compute_potential(self.graph)
 
         # Truncate if budget exceeded
@@ -250,16 +264,26 @@ class MisInfoForensicsEnv(gym.Env):
             self._done = True
             logger.info("[END] %s truncated at step %d", self.episode_id, self.steps)
 
-        # Hackathon requirement: reward must be in 0.0-1.0 range
-        reward = float(np.clip(reward, 0.0, 1.0))
+        info["raw_reward"] = raw_r
+        reward = float(np.clip(raw_r, config.REWARD_CLIP_MIN, config.REWARD_CLIP_MAX))
 
-        logger.info("[STEP] %s step=%d action=%s reward=%.4f nodes+=%d",
-                    self.episode_id, self.steps, action_name, reward, new_nodes)
+        logger.info("[STEP] %s step=%d action=%s reward=%.4f (raw=%.4f) nodes+=%d",
+                    self.episode_id, self.steps, action_name, reward, raw_r, new_nodes)
 
         obs = self._build_obs()
         return obs, reward, terminated, truncated, info
 
+    def close(self) -> None:
+        """Explicitly shut down tool registry to prevent resource leaks."""
+        if hasattr(self, "tool_registry") and self.tool_registry:
+            try:
+                self.tool_registry.close()
+                logger.debug("Environment and ToolRegistry closed successfully.")
+            except Exception as e:
+                logger.error("Error closing ToolRegistry: %s", e)
+
     def render(self) -> Optional[dict]:
+
         if self.graph is None:
             return None
         state = {

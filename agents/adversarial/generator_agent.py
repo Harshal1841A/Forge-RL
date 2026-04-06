@@ -21,6 +21,7 @@ ALL_TACTICS: List[TacticType] = [
     "fabricate_statistic", "strip_context", "backdate_article",
     "misattribute_quote", "amplify_via_bot_network",
     "splice_image_caption", "cherry_pick_study", "translate_without_context",
+    "parody_taken_literally",
 ]
 
 # Linguistic register styles for diversity
@@ -110,14 +111,15 @@ class GeneratorAgent:
 
     def _tactic_to_task(self, tactic: TacticType) -> str:
         tactic_task_map = {
-            "fabricate_statistic":    "fabricated_stats",
-            "cherry_pick_study":      "fabricated_stats",
-            "misattribute_quote":     "fabricated_stats",
-            "strip_context":          "out_of_context",
-            "backdate_article":       "out_of_context",
-            "translate_without_context": "out_of_context",
-            "amplify_via_bot_network":"coordinated_campaign",
-            "splice_image_caption":   "out_of_context",
+            "fabricate_statistic":      "fabricated_stats",
+            "cherry_pick_study":        "fabricated_stats",
+            "misattribute_quote":       "fabricated_stats",
+            "strip_context":            "out_of_context",
+            "backdate_article":         "out_of_context",
+            "translate_without_context":"out_of_context",
+            "amplify_via_bot_network":  "coordinated_campaign",
+            "splice_image_caption":     "out_of_context",
+            "parody_taken_literally":   "satire_news",
         }
         return tactic_task_map.get(tactic, "fabricated_stats")
 

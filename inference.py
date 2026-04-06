@@ -82,8 +82,11 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
             true_label = env.graph.true_label if env.graph else "unknown"
             correct    = (verdict == true_label)
             
-            # Emit clamped reward allowing it to strictly conform to grader 0.0-1.0 limits
-            final_reward = float(np.clip(ep_reward, 0.0, 1.0))
+            # Report the terminal step reward (already clipped by env.step),
+            # which is the authoritative 0.0-1.0 grader score for this episode.
+            # Do NOT clamp the cumulative sum — it can exceed 1.0 legitimately.
+            terminal_reward = step_rewards[-1] if step_rewards else 0.0
+            final_reward = float(np.clip(terminal_reward, 0.0, 1.0))
 
             # [END] emit
             rewards_str = ",".join(f"{r:.2f}" for r in step_rewards)

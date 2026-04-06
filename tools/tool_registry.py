@@ -98,7 +98,7 @@ class SimulatedToolRegistry:
         import re
         root_text = graph.root.text.lower()
         entities = []
-        org_keywords = ["cdc", "nasa", "mit", "stanford", "who.int",
+        org_keywords = ["cdc", "nasa", "mit", "stanford", "who.int", "who",
                         "world health organization", "fda", "nih", "reuters"]
         if any(re.search(r'\b' + re.escape(kw) + r'\b', root_text) for kw in org_keywords):
             entities.append({"entity": "recognized_institution", "confidence": 0.9})
@@ -148,6 +148,10 @@ class SimulatedToolRegistry:
     def _sim_unknown(self, graph: ClaimGraph, **_) -> Dict[str, Any]:
         return {"error": "unknown_tool", "new_nodes": 0, "new_contradictions": 0}
 
+    def close(self):
+        """Placeholder for consistency."""
+        pass
+
 
 # ─── Live Tool Registry (Free APIs) ──────────────────────────────────────────
 
@@ -190,15 +194,25 @@ class ToolRegistry:
 
     def __del__(self):
         """Safely close sqlite connection to prevent resource leaks/locks."""
+        self.close()
+
+    def close(self) -> None:
+        """Explicitly close the SQLite connection. Call this instead of relying on __del__."""
         try:
             if hasattr(self, "_cursor") and self._cursor:
                 self._cursor.close()
+                self._cursor = None
+        except Exception as e:
+            logger.debug("Error closing cursor: %s", e)
+        try:
             if hasattr(self, "_conn") and self._conn:
                 self._conn.close()
+                self._conn = None
         except Exception as e:
-            logger.debug(f"Error closing tool registry db: {e}")
+            logger.debug("Error closing connection: %s", e)
 
     def call(self, tool_name: str, graph: ClaimGraph, **kwargs) -> Dict[str, Any]:
+
         # Keyed by tool + root claim + graph state hash — fixes stale-result bug where
         # all steps in the same episode shared the same cache key (old: step always = 0)
         cache_key = f"{tool_name}:{graph.root_claim_id}:{graph.wl_hash()}"

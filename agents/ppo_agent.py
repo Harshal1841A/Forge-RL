@@ -171,7 +171,18 @@ class PPOAgent:
                 ret_b   = ret_b.to(self.device)
                 old_lp_b = old_lp_b.to(self.device)
 
-                logits, values = self.policy(obs_b)
+                # Route through forward correctly for both MLPPolicy and GATPolicy.
+                # GATPolicy falls back to a zero-node graph when no graph data is
+                # provided (flat-obs training mode).
+                from agents.gnn_policy import GATPolicy
+                if isinstance(self.policy, GATPolicy):
+                    n = obs_b.shape[0]
+                    node_feats = torch.zeros(n, self.policy.node_feat_dim)
+                    edge_index = torch.zeros(2, 0, dtype=torch.long)
+                    batch = torch.arange(n, dtype=torch.long)
+                    logits, values = self.policy(obs_b, node_feats, edge_index, batch)
+                else:
+                    logits, values = self.policy(obs_b)
                 dist     = torch.distributions.Categorical(logits=logits)
                 new_lp   = dist.log_prob(act_b)
                 entropy  = dist.entropy().mean()

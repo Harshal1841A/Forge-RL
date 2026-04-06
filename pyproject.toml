@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "forge"
@@ -30,3 +30,9 @@ server = "uvicorn:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["env*", "server*", "tools*", "agents*", "training*"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

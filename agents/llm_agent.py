@@ -97,8 +97,10 @@ class _RateLimitError(Exception):
 
 class LLMAgent:
     """
-    Pure ReAct LLM agent using OpenAI API standard.
-    v2.0: Heuristic fallback removed. Exponential backoff via tenacity.
+    Pure ReAct LLM agent using OpenAI API standard (Groq-compatible).
+    v2.0: FSM-constrained action selection with chain-of-thought prompting.
+    Includes a graduated heuristic fallback for rate-limit / API failure scenarios.
+    Exponential backoff via tenacity (3 retries, up to 5s wait).
     """
 
     name = "llm_react_v2"

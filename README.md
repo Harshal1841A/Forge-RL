@@ -71,6 +71,16 @@ python app.py
 ```
 Open your browser at `http://127.0.0.1:7860` to watch the `LLMAgent` autonomously investigate cases in real time!
 
+### 💎 Premium Crystalline UI
+The Gradio application (`app.py`) has been completely rewritten to feature a modern, glassmorphism-inspired **Crystalline UI**.
+- **Dark aura themes** with glass panels and glowing hover effects.
+- **Real-time timeline** with animations for investigation steps.
+- **Live agent reasoning logs** and structured task metric reporting.
+- **Interactive controls** with visual status indicators.
+
+### 🛡️ Codebase Hardening (Recent Updates)
+- System rigorously hardened to resolve infinite loops, graph-state inconsistencies, truncation issues, GATPolicy architecture mismatches, edge-case dangling variables, memory leaks in Tool registries, and missing budget multipliers. System tested and hardened for OpenEnv validation and continuous continuous execution.
+
 **4. OpenEnv Validation**
 To ensure the submission is ready for multi-mode deployment, run the following:
 ```bash

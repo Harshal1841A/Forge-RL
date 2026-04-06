@@ -35,14 +35,18 @@ TOOL_CACHE_TTL_SEC: int = 21600      # 6 hours
 # ─── Reward Shaping ───────────────────────────────────────────────────────────
 REWARD_CORRECT_VERDICT: float = 1.0
 REWARD_WRONG_VERDICT: float = 0.0
-REWARD_FALSE_POSITIVE: float = 0.0
+REWARD_FALSE_POSITIVE: float = -0.15     # penalty for mislabelling real as misinfo
 REWARD_MANIPULATION_FLAG: float = 0.15
+REWARD_MANIPULATION_PENALTY: float = -0.10  # penalty for false manipulation flag
 REWARD_STEP_PENALTY: float = -0.02
 REWARD_DUPLICATE_TOOL_PENALTY: float = -0.05
+REWARD_CLIP_MIN: float = 0.0
+REWARD_CLIP_MAX: float = 1.0
 POTENTIAL_W1: float = 0.4   # evidence coverage weight
 POTENTIAL_W2: float = 0.3   # source diversity weight
 POTENTIAL_W3: float = 0.2   # contradiction surface area
 POTENTIAL_W4: float = 0.1   # reserved / network diameter (not currently used in potential fn)
+
 
 # ─── RL Training ──────────────────────────────────────────────────────────────
 PPO_LR: float = 3e-4

@@ -39,6 +39,12 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 FORGE server starting — visit /docs for interactive API")
     yield
     logger.info("🛑 FORGE shutting down. Active episodes at close: %d", len(EPISODE_STORE))
+    # Explicitly close tool registry DB connections before clearing store
+    for record in EPISODE_STORE.values():
+        if isinstance(record, dict):
+            env = record.get("env")
+            if env and hasattr(env, "tool_registry") and hasattr(env.tool_registry, "close"):
+                env.tool_registry.close()
     EPISODE_STORE.clear()
 
 

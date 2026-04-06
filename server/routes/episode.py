@@ -30,10 +30,16 @@ async def reset_env(req: ResetRequest):
         # Max-size eviction to prevent memory leak on long-running servers.
         # In production, replace EPISODE_STORE with Redis (see server/state.py).
         MAX_EPISODES = 500
-        non_meta_keys = [k for k in EPISODE_STORE if k not in ("latest_id", "latest")]
-        if len(non_meta_keys) >= MAX_EPISODES:
-            oldest = non_meta_keys[0]   # dict insertion order preserved in Python 3.7+
-            del EPISODE_STORE[oldest]
+        non_meta_keys = [k for k in list(EPISODE_STORE.keys())
+                         if k not in ("latest_id", "latest")]
+        while len(non_meta_keys) >= MAX_EPISODES:
+            oldest = non_meta_keys.pop(0)
+            env_record = EPISODE_STORE.pop(oldest, None)
+            # Close DB connection if live tools were used
+            if env_record and hasattr(env_record.get("env"), "tool_registry"):
+                tr = env_record["env"].tool_registry
+                if hasattr(tr, "close"):
+                    tr.close()
             logger.debug("Evicted episode %s from store (limit=%d)", oldest, MAX_EPISODES)
 
         episode_id = info["episode_id"]

@@ -29,7 +29,10 @@ def train(args: argparse.Namespace) -> None:
     logger.info("=" * 60)
 
     curriculum = CurriculumManager()
-    env = MisInfoForensicsEnv(difficulty=curriculum.difficulty)
+    env = MisInfoForensicsEnv(
+        difficulty=curriculum.difficulty,
+        budget_multiplier=curriculum.budget_multiplier,
+    )
     obs_dim = env.observation_space.shape[0]
 
     agent = PPOAgent(obs_dim=obs_dim, use_gnn=False, lr=config.PPO_LR, device=args.device)
@@ -47,6 +50,7 @@ def train(args: argparse.Namespace) -> None:
         # ── Update env difficulty from curriculum ──────────────────────────────
         curr_status = curriculum.status()
         env.difficulty = curriculum.difficulty
+        env.budget_multiplier = curriculum.budget_multiplier
 
         # ── Collect rollout ────────────────────────────────────────────────────
         rollout_stats = agent.collect_rollout(env)
