@@ -65,11 +65,11 @@ The inference script iteratively spawns the ReAct++ local LLMAgent against 2 epi
 python inference.py
 ```
 
-**3. Launch the OpenEnv API Server & Visualizer**
+**3. Launch the Interactive UI (Gradio)**
 ```bash
-docker-compose up --build
+python app.py
 ```
-Open `frontend/visualizer.html` in your browser to watch the RL agents graphically!
+Open your browser at `http://127.0.0.1:7860` to watch the `LLMAgent` autonomously investigate cases in real time!
 
 ## 📊 Baseline Scores
 
