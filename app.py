@@ -851,6 +851,8 @@ CRYSTALLINE_THEME = gr.themes.Base(
 
 with gr.Blocks(
     title="FORGE — MisInfo Forensics Investigation AI",
+    theme=CRYSTALLINE_THEME,
+    css=CRYSTALLINE_CSS,
 ) as demo:
 
     # ── Hero header ──
@@ -953,4 +955,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.launch(css=CRYSTALLINE_CSS, theme=CRYSTALLINE_THEME)
+    demo.launch()
