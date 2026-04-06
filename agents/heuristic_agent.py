@@ -40,7 +40,8 @@ class HeuristicAgent:
           [402]     step_ratio
         """
         from env.misinfo_env import ACTIONS
-        embed_dim = 384
+        import config
+        embed_dim = config.MAX_OBSERVATION_NODES * config.CLAIM_EMBED_DIM
         hist = obs[embed_dim: embed_dim + N_ACTIONS]      # tool history
         coverage     = float(obs[embed_dim + N_ACTIONS])
         diversity    = float(obs[embed_dim + N_ACTIONS + 1])
