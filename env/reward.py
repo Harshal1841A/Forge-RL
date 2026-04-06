@@ -61,9 +61,16 @@ def verdict_reward(
     correct = (predicted_label == true_label)
     base = config.REWARD_CORRECT_VERDICT if correct else config.REWARD_WRONG_VERDICT
 
-    # False-positive penalty: flagged real content as misinfo
-    if not correct and predicted_label == "misinfo" and true_label == "real":
-        base += config.REWARD_FALSE_POSITIVE   # additional penalty (negative)
+    # Introduce partial credit for getting the macro category (misinfo vs real) correct
+    # This prevents the grader from returning 0.0 for LLM agents that correctly identify it as fake,
+    # but struggle to distinguish between 'satire' and 'fabricated' zero-shot.
+    misinfo_categories = {"misinfo", "satire", "out_of_context", "fabricated"}
+    
+    if not correct:
+        if predicted_label in misinfo_categories and true_label in misinfo_categories:
+            base = config.REWARD_CORRECT_VERDICT * 0.5  # 50% partial credit
+        elif predicted_label == "misinfo" and true_label == "real":
+            base += config.REWARD_FALSE_POSITIVE   # additional penalty (negative)
 
     # ── Calibration bonus (rewards confidence alignment) ──────────────────────
     # Correct + high confidence → bonus; Wrong + high confidence → penalty
