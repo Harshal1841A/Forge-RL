@@ -195,8 +195,8 @@ class LLMAgent:
 
     @retry(
         retry=retry_if_exception_type(_RateLimitError),
-        wait=wait_exponential(multiplier=1, min=2, max=60),
-        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
+        stop=stop_after_attempt(3),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=False,
     )

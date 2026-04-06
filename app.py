@@ -18,8 +18,10 @@ logging.getLogger("agents").setLevel(logging.CRITICAL)
 def investigate(task_name, difficulty):
     agent = LLMAgent()
     
-    # We instantiate a specific task environment
-    env = MisInfoForensicsEnv(task_names=[task_name], difficulty=int(difficulty))
+    if task_name == "All Tasks (Random)":
+        env = MisInfoForensicsEnv(difficulty=int(difficulty))
+    else:
+        env = MisInfoForensicsEnv(task_names=[task_name], difficulty=int(difficulty))
     ep_seed = int(time.time()) % 100000
     obs, info = env.reset(seed=ep_seed)
     
@@ -72,7 +74,8 @@ with gr.Blocks(title="MisInfo Forensics Investigation AI") as demo:
     gr.Markdown("Select a task scenario to have the LLM agent autonomously investigate it.")
     
     with gr.Row():
-        task_dropdown = gr.Dropdown(choices=list(TASK_REGISTRY.keys()), value=list(TASK_REGISTRY.keys())[0], label="Select Task")
+        task_choices = ["All Tasks (Random)"] + list(TASK_REGISTRY.keys())
+        task_dropdown = gr.Dropdown(choices=task_choices, value="All Tasks (Random)", label="Select Task")
         difficulty_slider = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Difficulty")
         
     start_btn = gr.Button("Start Investigation")
