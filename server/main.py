@@ -139,6 +139,15 @@ def create_app() -> FastAPI:
         logger.error("Unhandled exception: %s", exc, exc_info=True)
         return JSONResponse(status_code=500, content={"detail": str(exc)})
 
+    # ── Mount Interactive Gradio UI on root ───────────────────────────────────
+    try:
+        import gradio as gr
+        from app import demo
+        # Mounts at / so the HF Space shows the UI immediately
+        app = gr.mount_gradio_app(app, demo, path="/")
+    except Exception as getattr_exc:
+        logger.warning(f"Could not mount Gradio UI: {getattr_exc}")
+
     return app
 
 
