@@ -98,7 +98,6 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
                 "steps":      env.steps,
                 "time_s":     round(elapsed, 2),
             }
-            print(f"[END] {json.dumps(result)}", flush=True)
             results.append(result)
 
     accuracy = sum(r["correct"] for r in results) / len(results)
