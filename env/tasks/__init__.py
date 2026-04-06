@@ -9,6 +9,8 @@ from env.tasks.task_coordinated_campaign import CoordinatedCampaignTask
 from env.tasks.task_politifact import PolitifactTask
 from env.tasks.task_image_forensics import ImageForensicsTask
 from env.tasks.task_sec_fraud import SECFraudTask
+from env.tasks.task_verified_fact import VerifiedFactTask
+from env.tasks.task_satire_news import SatiricalClaimTask
 
 TASK_REGISTRY = {
     "fabricated_stats":      FabricatedStatsTask,
@@ -17,6 +19,8 @@ TASK_REGISTRY = {
     "politifact_liar":       PolitifactTask,
     "image_forensics":       ImageForensicsTask,
     "sec_fraud":             SECFraudTask,
+    "verified_fact":         VerifiedFactTask,
+    "satire_news":           SatiricalClaimTask,
 }
 
 __all__ = [
@@ -27,5 +31,7 @@ __all__ = [
     "PolitifactTask",
     "ImageForensicsTask",
     "SECFraudTask",
+    "VerifiedFactTask",
+    "SatiricalClaimTask",
     "TASK_REGISTRY",
 ]

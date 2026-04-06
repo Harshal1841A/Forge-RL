@@ -11,10 +11,10 @@ pinned: false
 
 An OpenEnv-compliant Reinforcement Learning simulation for training agents to investigate misinformation graphs.
 
-## 🎯 Motivation
+## Motivation
 Misinformation rarely exists as a simple text classification problem. Fact-checkers and Trust & Safety engineers must actively **investigate** claims by querying sources, verifying timestamps, linking entities, and detecting automated bot amplifications. FORGE provides a multi-task graph-based simulation where agents learn these exact investigative policies under rigid step constraints.
 
-## 🧩 Spaces
+##  Spaces
 
 **Observation Space**: 
 A flat `np.ndarray` of length 3859.
@@ -71,7 +71,14 @@ python app.py
 ```
 Open your browser at `http://127.0.0.1:7860` to watch the `LLMAgent` autonomously investigate cases in real time!
 
-## 📊 Baseline Scores
+**4. OpenEnv Validation**
+To ensure the submission is ready for multi-mode deployment, run the following:
+```bash
+uv lock
+openenv validate
+```
+
+##  Baseline Scores
 
 FORGE uses a **two-tier agent system**:
 
@@ -85,13 +92,13 @@ Run `python inference.py --episodes 2` to reproduce offline results (no API key 
 
 | Task | Heuristic Accuracy | Heuristic Reward | Expected LLM Accuracy | Offline Support |
 |------|--------------------|------------------|-----------------------|-----------------|
-| `fabricated_stats` | 0% | 0.26 | ~70% | ✅ |
-| `out_of_context` | 0% | 0.43 | ~65% | ✅ |
-| `coordinated_campaign` | 100% | 0.99 | ~85% | ✅ |
-| `politifact_liar` | 0% | 0.11 | ~60% | ✅ |
-| `image_forensics` | 0% | 0.26 | ~75% | ✅ |
-| `sec_fraud` | 0% | 0.41 | ~68% | ✅ |
-| **Heuristic Baseline** | **16.7%** | **0.41** | — | ✅ |
+| `fabricated_stats` | 0% | 0.26 | ~70% |
+| `out_of_context` | 0% | 0.43 | ~65% |
+| `coordinated_campaign` | 100% | 0.99 | ~85% |
+| `politifact_liar` | 0% | 0.11 | ~60% |
+| `image_forensics` | 0% | 0.26 | ~75% |
+| `sec_fraud` | 0% | 0.41 | ~68% | 
+| **Heuristic Baseline** | **16.7%** | **0.41** | — |
 
 *All rewards clamped to [0.0, 1.0] per OpenEnv spec. Partial credit (0.5) is awarded when the agent correctly identifies the macro-category (fake vs real) but misclassifies the sub-type.*
 
