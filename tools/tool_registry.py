@@ -93,10 +93,14 @@ class SimulatedToolRegistry:
         }
 
     def _sim_entity_link(self, graph: ClaimGraph, **_) -> Dict[str, Any]:
-        # Simulate Wikidata entity linking
+        # Simulate Wikidata entity linking — whole-word regex to avoid
+        # false-positive on English pronoun "who" matching WHO (org)
+        import re
         root_text = graph.root.text.lower()
         entities = []
-        if any(word in root_text for word in ["who", "cdc", "nasa", "mit", "stanford"]):
+        org_keywords = ["cdc", "nasa", "mit", "stanford", "who.int",
+                        "world health organization", "fda", "nih", "reuters"]
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', root_text) for kw in org_keywords):
             entities.append({"entity": "recognized_institution", "confidence": 0.9})
         if any(word in root_text for word in ["%", "percent", "study", "research"]):
             entities.append({"entity": "statistical_claim", "confidence": 0.85})
