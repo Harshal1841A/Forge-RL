@@ -13,7 +13,7 @@ Decision logic:
 
 from __future__ import annotations
 import numpy as np
-from env.misinfo_env import ACTIONS, N_ACTIONS
+from env.misinfo_env import N_ACTIONS
 
 
 class HeuristicAgent:
@@ -44,7 +44,7 @@ class HeuristicAgent:
         embed_dim = config.MAX_OBSERVATION_NODES * config.CLAIM_EMBED_DIM
         hist = obs[embed_dim: embed_dim + N_ACTIONS]      # tool history
         coverage     = float(obs[embed_dim + N_ACTIONS])
-        diversity    = float(obs[embed_dim + N_ACTIONS + 1])
+        _            = float(obs[embed_dim + N_ACTIONS + 1])
         contra_norm  = float(obs[embed_dim + N_ACTIONS + 2])
         flagged      = bool(obs[embed_dim + N_ACTIONS + 3] > 0.5)
         budget       = float(obs[embed_dim + N_ACTIONS + 4])  # remaining fraction

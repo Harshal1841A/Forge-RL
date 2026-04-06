@@ -7,8 +7,7 @@ No fallback heuristic — the agent must reason through rate limits with retries
 from __future__ import annotations
 import json
 import logging
-import re
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 from tenacity import (
@@ -20,7 +19,7 @@ from tenacity import (
 )
 
 import config
-from env.misinfo_env import ACTIONS, N_ACTIONS
+from env.misinfo_env import ACTIONS
 
 logger = logging.getLogger(__name__)
 

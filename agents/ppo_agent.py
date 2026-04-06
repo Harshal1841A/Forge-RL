@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import deque
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -21,8 +21,8 @@ import torch.nn as nn
 import torch.nn.functional as F   # moved to top — was erroneously imported at line 208 after first use
 import torch.optim as optim
 
-from agents.gnn_policy import build_policy, MLPPolicy
-from env.misinfo_env import MisInfoForensicsEnv, N_ACTIONS
+from agents.gnn_policy import build_policy
+from env.misinfo_env import MisInfoForensicsEnv
 import config
 
 logger = logging.getLogger(__name__)

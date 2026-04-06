@@ -5,13 +5,11 @@ structured metrics: accuracy, macro-F1, efficiency, manipulation detection.
 
 from __future__ import annotations
 import logging
-from collections import defaultdict
 from typing import Any, Dict
 
 import numpy as np
 
-from env.misinfo_env import MisInfoForensicsEnv, ACTIONS, VERDICT_ACTIONS
-from env.tasks import TASK_REGISTRY
+from env.misinfo_env import MisInfoForensicsEnv
 
 logger = logging.getLogger(__name__)
 

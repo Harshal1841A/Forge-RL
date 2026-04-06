@@ -13,12 +13,12 @@ Architecture:
 from __future__ import annotations
 import logging
 import random
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from agents.adversarial.generator_agent import GeneratorAgent, ALL_TACTICS
 from agents.ppo_agent import PPOAgent
 from agents.heuristic_agent import HeuristicAgent
-from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
+from env.misinfo_env import MisInfoForensicsEnv
 import config
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,6 @@ class SelfPlayTrainer:
         self.history: List[dict] = []
 
     def _init_population(self, n: int, seed: int) -> List[GeneratorAgent]:
-        import itertools
         styles = ["tabloid", "academic", "official", "social", "neutral"]
         generators = []
         for i in range(n):

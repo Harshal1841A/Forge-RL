@@ -4,7 +4,7 @@ Global Configuration (100% free-tier / open-source)
 """
 
 # dataclasses import removed — was only used incorrectly for POLICY_HIDDEN_DIMS
-from typing import List, Optional
+from typing import List
 import os
 
 from dotenv import load_dotenv

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 from fastapi import APIRouter, HTTPException
-
-from env.misinfo_env import ACTIONS
 from server.schemas import StepRequest, StepResponse
 from server.state import EPISODE_STORE
 

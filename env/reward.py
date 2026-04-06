@@ -4,7 +4,6 @@ All shaping functions satisfy the policy-invariance theorem (Ng et al., 1999).
 """
 
 from __future__ import annotations
-from typing import Optional
 import math
 from env.claim_graph import ClaimGraph
 import config

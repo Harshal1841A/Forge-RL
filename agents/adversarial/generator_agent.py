@@ -7,7 +7,6 @@ Trained via self-play signal: rewarded when investigator FAILS.
 """
 
 from __future__ import annotations
-import json
 import logging
 import random
 from typing import Any, Dict, List, Optional

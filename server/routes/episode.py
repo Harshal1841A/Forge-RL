@@ -3,13 +3,12 @@
 from __future__ import annotations
 import logging
 import random
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
 from env.misinfo_env import MisInfoForensicsEnv
-from server.schemas import ResetRequest, ResetResponse, StateRequest, StateResponse
+from server.schemas import ResetRequest, ResetResponse, StateResponse
 from server.state import EPISODE_STORE
 
 logger = logging.getLogger(__name__)

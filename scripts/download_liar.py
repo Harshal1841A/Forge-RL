@@ -18,7 +18,6 @@ import argparse
 import csv
 import io
 import logging
-import os
 import sys
 from pathlib import Path
 
