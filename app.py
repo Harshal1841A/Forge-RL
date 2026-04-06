@@ -854,6 +854,7 @@ with gr.Blocks(
     theme=CRYSTALLINE_THEME,
     css=CRYSTALLINE_CSS,
 ) as demo:
+    gr.HTML(f"<style>{CRYSTALLINE_CSS}</style>")
 
     # ── Hero header ──
     gr.HTML(build_hero_html())
