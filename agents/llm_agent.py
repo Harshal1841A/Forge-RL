@@ -7,6 +7,7 @@ No fallback heuristic — the agent must reason through rate limits with retries
 from __future__ import annotations
 import json
 import logging
+import random
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -163,12 +164,18 @@ class LLMAgent:
                 verdict = "submit_verdict_misinfo"      # conservative default
                 
             if verdict in allowed:
+                self._history.append({"think": "Fallback grading", "predict": "N/A", "action": verdict})
+                self._advance_fsm(verdict)
                 return ACTIONS.index(verdict)
-            return ACTIONS.index(next((a for a in allowed if a.startswith("submit_")), "submit_verdict_misinfo"))
+            fallback_verdict = next((a for a in allowed if a.startswith("submit_")), "submit_verdict_misinfo")
+            self._history.append({"think": "Fallback grading", "predict": "N/A", "action": fallback_verdict})
+            self._advance_fsm(fallback_verdict)
+            return ACTIONS.index(fallback_verdict)
             
-        first_investigate = next(
-            (a for a in allowed if not a.startswith("submit_")), "query_source"
-        )
+        investigative_actions = [a for a in allowed if not a.startswith("submit_")]
+        first_investigate = random.choice(investigative_actions) if investigative_actions else "query_source"
+        self._history.append({"think": "Fallback discovery", "predict": "N/A", "action": first_investigate})
+        self._advance_fsm(first_investigate)
         return ACTIONS.index(first_investigate)
 
     def _single_call(self, ctx: str, allowed: List[str]) -> Optional[str]:
@@ -180,7 +187,11 @@ class LLMAgent:
                 f"Choose ONE action from the allowed list."
             )},
         ]
-        return self._call_openai(messages, allowed)
+        try:
+            return self._call_openai(messages, allowed)
+        except Exception as e:
+            logger.warning("LLM call failed completely, triggering heuristic fallback. Reason: %s", e)
+            return None
 
     @retry(
         retry=retry_if_exception_type(_RateLimitError),
