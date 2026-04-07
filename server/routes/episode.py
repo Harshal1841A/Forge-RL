@@ -16,7 +16,8 @@ router = APIRouter()
 
 
 @router.post("/reset", response_model=ResetResponse, status_code=200)
-async def reset_env(req: ResetRequest):
+async def reset_env(req: Optional[ResetRequest] = None):
+    req = req or ResetRequest()
     try:
         task_names = [req.task_name] if req.task_name else None
         env = MisInfoForensicsEnv(
