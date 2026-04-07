@@ -43,11 +43,11 @@ class HeuristicAgent:
         import config
         embed_dim = config.MAX_OBSERVATION_NODES * config.CLAIM_EMBED_DIM
         hist = obs[embed_dim: embed_dim + N_ACTIONS]      # tool history
-        coverage     = float(obs[embed_dim + N_ACTIONS])
-        _            = float(obs[embed_dim + N_ACTIONS + 1])
-        contra_norm  = float(obs[embed_dim + N_ACTIONS + 2])
-        flagged      = bool(obs[embed_dim + N_ACTIONS + 3] > 0.5)
-        budget       = float(obs[embed_dim + N_ACTIONS + 4])  # remaining fraction
+        coverage = float(obs[embed_dim + N_ACTIONS])
+        _ = float(obs[embed_dim + N_ACTIONS + 1])
+        contra_norm = float(obs[embed_dim + N_ACTIONS + 2])
+        flagged = bool(obs[embed_dim + N_ACTIONS + 3] > 0.5)
+        budget = float(obs[embed_dim + N_ACTIONS + 4])  # remaining fraction
 
         def used(action_name: str) -> bool:
             idx = ACTIONS.index(action_name)

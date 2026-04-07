@@ -74,7 +74,7 @@ class OutOfContextTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             template = rng.choice(_TRUE_CLAIMS)
             true_label = "real"
@@ -117,7 +117,7 @@ class OutOfContextTask(BaseTask):
             origin_date = now - timedelta(days=rng.randint(1, 3))
         else:
             origin_date = datetime(template["origin_year"], rng.randint(1, 12), rng.randint(1, 28))
-            
+
         orig_id = "node_origin"
         orig = ClaimNode(
             node_id=orig_id,

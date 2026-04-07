@@ -1,6 +1,17 @@
 name: forge
 version: 1.0.0
 description: "FORGE: Forensic RL Graph Environment for Misinformation Investigation"
+author: "FORGE Team"
+tags: [openenv]
+tasks:
+  - id: fabricated_stats
+  - id: out_of_context
+  - id: coordinated_campaign
+  - id: politifact_liar
+  - id: image_forensics
+  - id: sec_fraud
+  - id: verified_fact
+  - id: satire_news
 docker:
   build: .
   port: 7860
@@ -8,3 +19,4 @@ endpoints:
   reset: /reset    # POST
   step: /step      # POST
   state: /state    # GET
+  tasks: /tasks    # GET

@@ -58,7 +58,7 @@ class SatiricalClaimTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             template = rng.choice(_TRUE_BIZARRE_CLAIMS)
             true_label = "real"
@@ -73,12 +73,12 @@ class SatiricalClaimTask(BaseTask):
 
         # —— Root node
         fake_outrage_domain = rng.choice(_MISUNDERSTANDING_DOMAINS)
-        
+
         if is_true:
             root_text = f"Can't make this up! {template['text']}"
         else:
             root_text = f"UNBELIEVABLE: {template['text']} This is what our world has come to!!"
-            
+
         root = ClaimNode(
             node_id=root_id,
             text=root_text,

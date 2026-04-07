@@ -14,16 +14,20 @@ import config
 def compute_potential(graph: ClaimGraph) -> float:
     """
     State potential used for dense shaping:
-      Φ(s) = w1·coverage + w2·diversity + w3·contradiction_area - w4·duplicate_waste
+      Φ(s) = w1·coverage + w2·diversity + w3·contradiction_area + w4·network_diameter
     """
-    coverage   = graph.evidence_coverage                 # 0-1
-    diversity  = min(graph.source_diversity_entropy / math.log2(max(len(graph.nodes), 2)), 1.0)
-    contra     = min(graph.contradiction_surface_area / max(len(graph.edges), 1), 1.0)
+    coverage = graph.evidence_coverage                 # 0-1
+    diversity = min(graph.source_diversity_entropy / math.log2(max(len(graph.nodes), 2)), 1.0)
+    contra = min(graph.contradiction_surface_area / max(len(graph.edges), 1), 1.0)
+    # FIX: POTENTIAL_W4 was declared but never used. Wire in network_diameter as a
+    # normalised signal (larger graphs = more complex investigation = more potential).
+    diameter = min((graph.network_diameter - 1) / max(len(graph.nodes) - 1, 1), 1.0)
 
     phi = (
         config.POTENTIAL_W1 * coverage
-      + config.POTENTIAL_W2 * diversity
-      + config.POTENTIAL_W3 * contra
+        + config.POTENTIAL_W2 * diversity
+        + config.POTENTIAL_W3 * contra
+        + config.POTENTIAL_W4 * diameter
     )
     return phi
 
@@ -38,13 +42,10 @@ def shaped_step_reward(
     r_shaped = r_base + γ·Φ(s') - Φ(s)
     Guarantees no change to optimal policy (Ng et al., 1999).
 
-    Note: the env clips the return value to [0, 1]. To prevent asymmetric
-    clipping from biasing value estimates upward, we floor the shaping term
-    at REWARD_STEP_PENALTY so excessive negative shaping is bounded.
+    The shaping term can be negative; REWARD_CLIP_MIN = -1.0 now allows
+    negative rewards to reach the agent, so no artificial floor is needed.
     """
     shaping = gamma * compute_potential(curr_graph) - compute_potential(prev_graph)
-    # Floor shaping to avoid extreme negatives that get asymmetrically clipped
-    shaping = max(shaping, config.REWARD_STEP_PENALTY * 2)
     return base_reward + shaping
 
 
@@ -71,12 +72,15 @@ def verdict_reward(
     # This prevents the grader from returning 0.0 for LLM agents that correctly identify it as fake,
     # but struggle to distinguish between 'satire' and 'fabricated' zero-shot.
     misinfo_categories = {"misinfo", "satire", "out_of_context", "fabricated"}
-    
+
     if not correct:
         if predicted_label in misinfo_categories and true_label in misinfo_categories:
             base = config.REWARD_CORRECT_VERDICT * 0.5  # 50% partial credit
-        elif predicted_label == "misinfo" and true_label == "real":
-            base += config.REWARD_FALSE_POSITIVE   # additional penalty (negative)
+        elif predicted_label in misinfo_categories and true_label == "real":
+            # FIX: was `base += REWARD_FALSE_POSITIVE` which stacked on top of
+            # REWARD_WRONG_VERDICT. Now set explicitly so the total is predictable.
+            # Also broadened from only "misinfo" to all misinfo-category false positives.
+            base = config.REWARD_WRONG_VERDICT + config.REWARD_FALSE_POSITIVE
 
     # ── Calibration bonus (rewards confidence alignment) ──────────────────────
     # Correct + high confidence → bonus; Wrong + high confidence → penalty
@@ -129,4 +133,3 @@ def efficiency_penalty(steps_used: int, difficulty: int) -> float:
     base_budget = config.BASE_EPISODE_STEPS + difficulty * config.STEP_COMPLEXITY_BONUS
     excess = max(0, steps_used - base_budget)
     return config.REWARD_STEP_PENALTY * excess / max(difficulty, 1)
-

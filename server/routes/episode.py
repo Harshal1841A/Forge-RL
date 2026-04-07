@@ -44,14 +44,14 @@ async def reset_env(req: ResetRequest):
 
         episode_id = info["episode_id"]
         EPISODE_STORE[episode_id] = {
-            "env":      env,
-            "obs":      obs,
+            "env": env,
+            "obs": obs,
             "agent_id": req.agent_id or "anonymous",
             "total_reward": 0.0,
-            "verdict":  None,
-            "done":     False,
+            "verdict": None,
+            "done": False,
         }
-        
+
         # In strict single-tenant, we cache the most recent ID instead of strong reference
         EPISODE_STORE["latest_id"] = episode_id
 
@@ -69,7 +69,7 @@ async def get_state(episode_id: Optional[str] = None):
     eid = episode_id or EPISODE_STORE.get("latest_id")
     if not eid or eid not in EPISODE_STORE:
         raise HTTPException(status_code=404, detail="Active episode not found")
-    
+
     record = EPISODE_STORE[eid]
     env = record["env"]
     info = env.get_episode_summary()

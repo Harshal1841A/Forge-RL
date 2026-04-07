@@ -117,15 +117,15 @@ class PolitifactTask(BaseTask):
             # Fallback to synthetic
             claim_data = rng.choice(_FALLBACK_CLAIMS)
 
-        statement  = claim_data["statement"]
-        speaker    = claim_data.get("speaker", "Unknown")
-        party      = claim_data.get("party", "Unknown")
+        statement = claim_data["statement"]
+        speaker = claim_data.get("speaker", "Unknown")
+        party = claim_data.get("party", "Unknown")
         liar_label = claim_data.get("liar_label", "false")
         forge_label = claim_data.get("forge_label", "misinfo")
-        subject    = claim_data.get("subject", "politics")
+        subject = claim_data.get("subject", "politics")
 
         graph_id = str(uuid.uuid4())
-        root_id  = "node_root"
+        root_id = "node_root"
 
         # ── Root node: the real political claim ───────────────────────────────
         root = ClaimNode(
@@ -223,11 +223,11 @@ class PolitifactTask(BaseTask):
     @staticmethod
     def _infer_tactics(liar_label: str) -> list:
         mapping = {
-            "pants-fire":  ["fabricate_statistic", "misattribute_quote"],
-            "false":       ["fabricate_statistic"],
+            "pants-fire": ["fabricate_statistic", "misattribute_quote"],
+            "false": ["fabricate_statistic"],
             "barely-true": ["strip_context", "cherry_pick_study"],
-            "half-true":   ["strip_context"],
+            "half-true": ["strip_context"],
             "mostly-true": [],
-            "true":        [],
+            "true": [],
         }
         return mapping.get(liar_label, ["fabricate_statistic"])

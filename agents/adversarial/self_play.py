@@ -13,7 +13,7 @@ Architecture:
 from __future__ import annotations
 import logging
 import random
-from typing import List, Tuple
+from typing import List, Tuple  # noqa: F401 – Optional removed (unused)
 
 from agents.adversarial.generator_agent import GeneratorAgent, ALL_TACTICS
 from agents.ppo_agent import PPOAgent
@@ -39,7 +39,7 @@ class SelfPlayTrainer:
         self.rng = random.Random(seed)
         self.population: List[GeneratorAgent] = self._init_population(population_size, seed)
         self.investigator = PPOAgent(obs_dim=obs_dim)
-        self.antagonist   = HeuristicAgent()   # fixed weaker reference for PAIRED
+        self.antagonist = HeuristicAgent()   # fixed weaker reference for PAIRED
 
         self.generation = 0
         self.history: List[dict] = []
@@ -77,10 +77,10 @@ class SelfPlayTrainer:
         gen_scores: List[Tuple[GeneratorAgent, float]] = []
 
         for gen in self.population:
-            gen_reward_sum   = 0.0
-            inv_reward_sum   = 0.0
-            ant_reward_sum   = 0.0
-            episodes_done    = 0
+            gen_reward_sum = 0.0
+            inv_reward_sum = 0.0
+            ant_reward_sum = 0.0
+            episodes_done = 0
 
             for ep in range(episodes_per_generator):
                 ep_seed = self.rng.randint(0, 2**20)
@@ -96,12 +96,12 @@ class SelfPlayTrainer:
                 gen_reward_sum += -regret   # generator rewarded when regret is HIGH
                 inv_reward_sum += inv_reward
                 ant_reward_sum += ant_reward
-                episodes_done  += 1
+                episodes_done += 1
 
                 gen.update_elo(investigator_won=(inv_reward > 0.5))
 
             mean_inv_reward = inv_reward_sum / max(episodes_done, 1)
-            mean_regret     = (inv_reward_sum - ant_reward_sum) / max(episodes_done, 1)
+            mean_regret = (inv_reward_sum - ant_reward_sum) / max(episodes_done, 1)
             gen_scores.append((gen, mean_regret))
             logger.info(
                 "  Generator %s: inv_reward=%.3f regret=%.3f ELO=%d",
@@ -125,16 +125,16 @@ class SelfPlayTrainer:
         best_gen = gen_scores[0][0]
         env = self._build_env_from_generator(best_gen, difficulty)
         rollout_stats = self.investigator.collect_rollout(env)
-        update_stats  = self.investigator.update()
+        update_stats = self.investigator.update()
 
         stats = {
-            "generation":        self.generation,
-            "best_generator":    best_gen.agent_id,
-            "best_gen_elo":      best_gen.elo,
-            "inv_mean_reward":   rollout_stats.get("mean_reward", 0.0),
-            "ppo_pg_loss":       update_stats.get("pg_loss", 0.0),
-            "ppo_entropy":       update_stats.get("entropy", 0.0),
-            "population_elos":   [g.elo for g in self.population],
+            "generation": self.generation,
+            "best_generator": best_gen.agent_id,
+            "best_gen_elo": best_gen.elo,
+            "inv_mean_reward": rollout_stats.get("mean_reward", 0.0),
+            "ppo_pg_loss": update_stats.get("pg_loss", 0.0),
+            "ppo_entropy": update_stats.get("entropy", 0.0),
+            "population_elos": [g.elo for g in self.population],
         }
         self.history.append(stats)
         return stats
@@ -182,19 +182,24 @@ class SelfPlayTrainer:
         """Build a fresh env configured to sample from the generator."""
         env = MisInfoForensicsEnv(difficulty=difficulty)
         # Monkey-patch task list to use generator's bias
+
         class _GenTask:
             task_id = gen.agent_id
+
             def generate(self, difficulty=1, seed=0):
                 return gen.generate(difficulty=difficulty)
+
             def oracle_steps(self, g):
                 return 5
+
             def has_manipulation(self, g):
                 return True
         env.tasks = [_GenTask()]
         return env
 
     def save_population(self, path: str) -> None:
-        import json, os
+        import json
+        import os
         os.makedirs(path, exist_ok=True)
         with open(f"{path}/population.json", "w") as f:
             json.dump([g.to_dict() for g in self.population], f, indent=2)

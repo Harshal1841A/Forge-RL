@@ -34,5 +34,12 @@ class BaseTask(ABC):
         """Whether this claim involves deliberate manipulation (vs innocent error)."""
         ...
 
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Evaluate an agent's trace (list of tool calls and verdicts) and return a score from 0.0 to 1.0.
+        Tasks should override this method to provide deterministic success criteria.
+        """
+        return 0.0
+
     def metadata(self) -> Dict[str, Any]:
         return {"task_id": self.task_id, "description": self.description}

@@ -33,25 +33,25 @@ logger = logging.getLogger(__name__)
 class RolloutBuffer:
     def __init__(self, size: int, obs_dim: int):
         self.size = size
-        self.obs        = np.zeros((size, obs_dim), dtype=np.float32)
-        self.actions    = np.zeros(size, dtype=np.int64)
-        self.rewards    = np.zeros(size, dtype=np.float32)
-        self.values     = np.zeros(size, dtype=np.float32)
-        self.log_probs  = np.zeros(size, dtype=np.float32)
-        self.dones      = np.zeros(size, dtype=np.float32)
+        self.obs = np.zeros((size, obs_dim), dtype=np.float32)
+        self.actions = np.zeros(size, dtype=np.int64)
+        self.rewards = np.zeros(size, dtype=np.float32)
+        self.values = np.zeros(size, dtype=np.float32)
+        self.log_probs = np.zeros(size, dtype=np.float32)
+        self.dones = np.zeros(size, dtype=np.float32)
         self.advantages = np.zeros(size, dtype=np.float32)
-        self.returns    = np.zeros(size, dtype=np.float32)
+        self.returns = np.zeros(size, dtype=np.float32)
         self.ptr = 0
         self.full = False
 
     def add(self, obs, action, reward, value, log_prob, done):
         i = self.ptr % self.size
-        self.obs[i]       = obs
-        self.actions[i]   = action
-        self.rewards[i]   = reward
-        self.values[i]    = value
+        self.obs[i] = obs
+        self.actions[i] = action
+        self.rewards[i] = reward
+        self.values[i] = value
         self.log_probs[i] = log_prob
-        self.dones[i]     = float(done)
+        self.dones[i] = float(done)
         self.ptr += 1
         if self.ptr >= self.size:
             self.full = True
@@ -97,17 +97,17 @@ class PPOAgent:
         device: str = "cpu",
     ):
         self.obs_dim = obs_dim
-        self.device  = torch.device(device)
-        self.policy  = build_policy(obs_dim, use_gnn=use_gnn).to(self.device)
+        self.device = torch.device(device)
+        self.policy = build_policy(obs_dim, use_gnn=use_gnn).to(self.device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr, eps=1e-5)
         self.scheduler = optim.lr_scheduler.LinearLR(
             self.optimizer, start_factor=1.0, end_factor=0.1, total_iters=1000
         )
 
-        self.buffer    = RolloutBuffer(config.PPO_TRAIN_BATCH, obs_dim)
+        self.buffer = RolloutBuffer(config.PPO_TRAIN_BATCH, obs_dim)
         self.ep_rewards: deque = deque(maxlen=100)
         self.total_steps = 0
-        self.updates     = 0
+        self.updates = 0
 
     # ── Action selection ──────────────────────────────────────────────────────
 
@@ -165,10 +165,10 @@ class PPOAgent:
             for obs_b, act_b, adv_b, ret_b, old_lp_b in self.buffer.get_batches(
                 config.PPO_MINI_BATCH
             ):
-                obs_b   = obs_b.to(self.device)
-                act_b   = act_b.to(self.device)
-                adv_b   = adv_b.to(self.device)
-                ret_b   = ret_b.to(self.device)
+                obs_b = obs_b.to(self.device)
+                act_b = act_b.to(self.device)
+                adv_b = adv_b.to(self.device)
+                ret_b = ret_b.to(self.device)
                 old_lp_b = old_lp_b.to(self.device)
 
                 # Route through forward correctly for both MLPPolicy and GATPolicy.
@@ -183,13 +183,13 @@ class PPOAgent:
                     logits, values = self.policy(obs_b, node_feats, edge_index, batch)
                 else:
                     logits, values = self.policy(obs_b)
-                dist     = torch.distributions.Categorical(logits=logits)
-                new_lp   = dist.log_prob(act_b)
-                entropy  = dist.entropy().mean()
+                dist = torch.distributions.Categorical(logits=logits)
+                new_lp = dist.log_prob(act_b)
+                entropy = dist.entropy().mean()
 
                 ratio = (new_lp - old_lp_b).exp()
-                pg1  = ratio * adv_b
-                pg2  = ratio.clamp(1 - config.PPO_CLIP_EPS, 1 + config.PPO_CLIP_EPS) * adv_b
+                pg1 = ratio * adv_b
+                pg2 = ratio.clamp(1 - config.PPO_CLIP_EPS, 1 + config.PPO_CLIP_EPS) * adv_b
                 pg_loss = -torch.min(pg1, pg2).mean()
 
                 vf_loss = F.mse_loss(values, ret_b)
@@ -218,13 +218,13 @@ class PPOAgent:
         self.buffer.full = False
 
         return {
-            "pg_loss":    float(np.mean(pg_losses)),
-            "vf_loss":    float(np.mean(vf_losses)),
-            "entropy":    float(np.mean(ent_losses)),
+            "pg_loss": float(np.mean(pg_losses)),
+            "vf_loss": float(np.mean(vf_losses)),
+            "entropy": float(np.mean(ent_losses)),
             "total_loss": float(np.mean(total_losses)),
-            "clip_frac":  float(np.mean(clip_fracs)),
-            "lr":         self.scheduler.get_last_lr()[0],
-            "updates":    self.updates,
+            "clip_frac": float(np.mean(clip_fracs)),
+            "lr": self.scheduler.get_last_lr()[0],
+            "updates": self.updates,
         }
 
     # ── Persistence ───────────────────────────────────────────────────────────
@@ -234,11 +234,11 @@ class PPOAgent:
         if parent:  # FIXED: dirname("") → "" which causes makedirs to raise FileNotFoundError
             os.makedirs(parent, exist_ok=True)
         torch.save({
-            "policy_state":    self.policy.state_dict(),
+            "policy_state": self.policy.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
-            "scheduler_state": self.scheduler.state_dict(),   # added — prevents LR restart on resume
-            "total_steps":     self.total_steps,
-            "updates":         self.updates,
+            "scheduler_state": self.scheduler.state_dict(),
+            "total_steps": self.total_steps,
+            "updates": self.updates,
         }, path)
         logger.info("Saved PPO checkpoint → %s", path)
 
@@ -249,5 +249,5 @@ class PPOAgent:
         if "scheduler_state" in ckpt:       # backward-compatible with old checkpoints
             self.scheduler.load_state_dict(ckpt["scheduler_state"])
         self.total_steps = ckpt.get("total_steps", 0)
-        self.updates     = ckpt.get("updates", 0)
+        self.updates = ckpt.get("updates", 0)
         logger.info("Loaded PPO checkpoint ← %s (step %d)", path, self.total_steps)

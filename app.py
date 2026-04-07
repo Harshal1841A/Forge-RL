@@ -1,772 +1,542 @@
-"""
-FORGE — MisInfo Forensics Investigation AI
-Crystalline Gradio UI with premium glassmorphism design and micro-animations.
-"""
-
 import gradio as gr
 import sys
 import time
-import json
+import random
+import re
 from pathlib import Path
+import logging
 
-sys.path.insert(0, str(Path(__file__).parent))
-
+# ─── Environment & Agent Imports ──────────────────────────────────────────
 import config
-from env.misinfo_env import MisInfoForensicsEnv, ACTIONS, VERDICT_ACTIONS
+from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
 from agents.llm_agent import LLMAgent
 from env.tasks import TASK_REGISTRY
-import logging
 
 logging.getLogger("env").setLevel(logging.CRITICAL)
 logging.getLogger("agents").setLevel(logging.CRITICAL)
 
-# ─── Task metadata for the UI ────────────────────────────────────────────────
+# ─── Task metadata ────────────────────────────────────────────────────────────
 TASK_META = {
-    "fabricated_stats":       {"icon": "📊", "color": "#ef4444", "desc": "Fabricated statistics attributed to institutions"},
-    "out_of_context":         {"icon": "🔀", "color": "#f97316", "desc": "Media stripped of original context"},
-    "coordinated_campaign":   {"icon": "🤖", "color": "#a855f7", "desc": "Bot-amplified coordinated campaigns"},
-    "satire_news":            {"icon": "🎭", "color": "#06b6d4", "desc": "Satire misinterpreted as real news"},
-    "verified_fact":          {"icon": "✅", "color": "#22c55e", "desc": "Legitimate verified factual claims"},
-    "politifact_liar":        {"icon": "🏛️", "color": "#3b82f6", "desc": "Real Politifact claims from LIAR dataset"},
-    "image_forensics":        {"icon": "🖼️", "color": "#ec4899", "desc": "AI-generated or manipulated images"},
-    "sec_fraud":              {"icon": "💰", "color": "#eab308", "desc": "Securities fraud & market manipulation"},
+    "fabricated_stats":     {"icon": "📊", "code": "FAB_STAT"},
+    "out_of_context":       {"icon": "🔀", "code": "OOC_STRIP"},
+    "coordinated_campaign": {"icon": "🤖", "code": "BOT_CAMP"},
+    "satire_news":          {"icon": "🎭", "code": "SAT_PARSE"},
+    "verified_fact":        {"icon": "✅", "code": "VER_FACT"},
+    "politifact_liar":      {"icon": "🏛️", "code": "POL_LIAR"},
+    "image_forensics":      {"icon": "🖼️", "code": "IMG_FRNSC"},
+    "sec_fraud":            {"icon": "💰", "code": "SEC_FRAUD"},
 }
 
-# ─── Action icons ─────────────────────────────────────────────────────────────
 ACTION_ICONS = {
-    "query_source": "🔍", "trace_origin": "🕵️", "cross_reference": "🔗",
-    "request_context": "📄", "entity_link": "🏷️", "temporal_audit": "⏰",
+    "query_source": "🔍", "trace_origin": "🔍", "cross_reference": "🔍",
+    "request_context": "📄", "entity_link": "🔗", "temporal_audit": "⏱️",
     "network_cluster": "🕸️", "flag_manipulation": "🚩",
-    "submit_verdict_real": "✅", "submit_verdict_misinfo": "⚠️",
-    "submit_verdict_satire": "🎭", "submit_verdict_out_of_context": "🔀",
-    "submit_verdict_fabricated": "❌",
+    "submit_verdict_real": "✅", "submit_verdict_misinfo": "❌",
+    "submit_verdict_satire": "🎭", "submit_verdict_out_of_context": "✂️",
+    "submit_verdict_fabricated": "⚠️",
 }
 
-VERDICT_EMOJI = {
-    "real": "✅", "misinfo": "⚠️", "satire": "🎭",
-    "out_of_context": "🔀", "fabricated": "❌",
-}
+# ─── CSS — Dynamic Animated Nebula Aesthetic ──────────────────────────────────
+FORGE_CSS = """
 
-# ─── Crystalline CSS ─────────────────────────────────────────────────────────
-CRYSTALLINE_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-/* ── Reset & Base ── */
 :root {
-    --crystal-bg: #06070d;
-    --crystal-surface: rgba(15, 18, 35, 0.85);
-    --crystal-glass: rgba(30, 35, 65, 0.45);
-    --crystal-border: rgba(100, 120, 255, 0.12);
-    --crystal-glow: rgba(99, 102, 241, 0.15);
-    --crystal-accent: #818cf8;
-    --crystal-accent-bright: #a5b4fc;
-    --crystal-text: #e2e8f0;
-    --crystal-text-dim: #94a3b8;
-    --crystal-success: #34d399;
-    --crystal-danger: #f87171;
-    --crystal-warn: #fbbf24;
-    --crystal-info: #60a5fa;
-    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --gradient-glass: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.04) 100%);
-    --gradient-aurora: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --bg-void: #020617;
+    --card-bg: rgba(15, 23, 42, 0.45);
+    --card-bg-hover: rgba(15, 23, 42, 0.65);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --border-glass-bright: rgba(255, 255, 255, 0.15);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+    --radius-lg: 20px;
 }
 
-* { box-sizing: border-box; }
+/* 1. VIBRANT NEBULA BACKGROUND ANIMATION */
+@keyframes nebulaFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 
-body, .gradio-container {
-    background: var(--crystal-bg) !important;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    color: var(--crystal-text) !important;
+body {
+    background: var(--bg-void) !important;
 }
 
 .gradio-container {
-    max-width: 1400px !important;
-    margin: 0 auto !important;
+    background: linear-gradient(-45deg, #020617, #1e1b4b, #2e1065, #083344, #0f172a, #4a044e, #020617) !important;
+    background-size: 400% 400% !important;
+    animation: nebulaFlow 20s ease infinite !important;
+    font-family: var(--font-ui) !important;
+    color: var(--text-primary) !important;
+    min-height: 100vh;
 }
 
-/* ── Animated aurora background ── */
-.gradio-container::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background:
-        radial-gradient(ellipse 80% 50% at 20% 40%, rgba(99,102,241,0.06), transparent),
-        radial-gradient(ellipse 60% 60% at 80% 20%, rgba(168,85,247,0.05), transparent),
-        radial-gradient(ellipse 50% 70% at 50% 80%, rgba(56,189,248,0.04), transparent);
-    pointer-events: none;
-    z-index: 0;
-    animation: auroraShift 20s ease-in-out infinite alternate;
+/* 2. GLOWING GLASS CARDS ANIMATION */
+@keyframes cardPulse {
+    0% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.1); }
+    50% { box-shadow: 0 0 35px rgba(6, 182, 212, 0.2); }
+    100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.1); }
 }
 
-@keyframes auroraShift {
-    0%   { opacity: 0.6; transform: scale(1.0); }
-    50%  { opacity: 1.0; transform: scale(1.05); }
-    100% { opacity: 0.7; transform: scale(0.98); }
+.glass-panel {
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid var(--border-glass) !important;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    animation: cardPulse 8s infinite alternate ease-in-out;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s ease;
 }
 
-/* ── Floating crystal particles ── */
-.gradio-container::after {
-    content: '';
-    position: fixed;
-    width: 300px; height: 300px;
-    top: 10%; right: 5%;
-    background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: floatParticle 15s ease-in-out infinite;
-    pointer-events: none;
-    z-index: 0;
+.glass-panel:hover {
+    background: var(--card-bg-hover) !important;
+    border-color: rgba(236, 72, 153, 0.3) !important;
+    transform: translateY(-4px);
 }
 
-@keyframes floatParticle {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33%  { transform: translate(-40px, 30px) scale(1.1); }
-    66%  { transform: translate(20px, -20px) scale(0.95); }
-}
-
-/* ── Header hero section ── */
-#forge-hero {
-    position: relative;
+.claim-text {
+    font-size: clamp(22px, 2vw, 26px) !important;
+    font-weight: 500;
+    color: var(--text-primary);
     text-align: center;
-    padding: 48px 24px 36px;
-    margin-bottom: 8px;
-    overflow: hidden;
-    z-index: 1;
+    line-height: 1.5;
+    padding: 30px 20px;
 }
 
-#forge-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg,
-        rgba(99,102,241,0.06) 0%,
-        transparent 60%,
-        rgba(168,85,247,0.04) 100%);
-    border-bottom: 1px solid var(--crystal-border);
-    z-index: -1;
+/* Elegant Text Gradient Highlight */
+@keyframes textGlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
-/* ── Glass panels ── */
-.panel, .glass-panel {
-    background: var(--crystal-glass) !important;
-    backdrop-filter: blur(20px) saturate(1.3) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
-    border: 1px solid var(--crystal-border) !important;
-    border-radius: 16px !important;
-    box-shadow:
-        0 4px 24px rgba(0,0,0,0.2),
-        inset 0 1px 0 rgba(255,255,255,0.04) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-.panel:hover, .glass-panel:hover {
-    border-color: rgba(100, 120, 255, 0.25) !important;
-    box-shadow:
-        0 8px 32px rgba(99,102,241,0.08),
-        0 4px 24px rgba(0,0,0,0.2),
-        inset 0 1px 0 rgba(255,255,255,0.06) !important;
-}
-
-/* ── Gradio block overrides ── */
-.block, .gr-group, .gr-box, .gr-form, .gr-panel, fieldset, .form {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-}
-
-/* ── Buttons ── */
-button.primary, button.lg {
-    background: var(--gradient-primary) !important;
-    border: 1px solid rgba(129, 140, 248, 0.3) !important;
-    color: white !important;
-    font-weight: 600 !important;
-    font-size: 15px !important;
-    padding: 14px 32px !important;
-    border-radius: 12px !important;
-    cursor: pointer !important;
-    position: relative !important;
-    overflow: hidden !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 15px rgba(99,102,241,0.25) !important;
-    letter-spacing: 0.02em !important;
-    z-index: 1 !important;
-}
-
-button.primary:hover, button.lg:hover {
-    transform: translateY(-2px) !important;
-    box-shadow:
-        0 8px 25px rgba(99,102,241,0.35),
-        0 0 40px rgba(99,102,241,0.1) !important;
-    border-color: rgba(165, 180, 252, 0.5) !important;
-}
-
-button.primary:active, button.lg:active {
-    transform: translateY(0) !important;
-}
-
-/* Button shimmer effect */
-button.primary::after, button.lg::after {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: linear-gradient(
-        45deg,
-        transparent 30%,
-        rgba(255,255,255,0.08) 50%,
-        transparent 70%
-    );
-    animation: shimmer 3s ease-in-out infinite;
-    z-index: -1;
-}
-
-@keyframes shimmer {
-    0%   { transform: translateX(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) rotate(45deg); }
-}
-
-/* ── Dropdowns & Sliders ── */
-.gr-dropdown, select, .gr-input, input, textarea, .single-select, input[type="number"] {
-    background: rgba(20, 24, 45, 0.8) !important;
-    background-color: rgba(20, 24, 45, 0.8) !important;
-    border: 1px solid rgba(130, 140, 240, 0.3) !important;
-    border-radius: 10px !important;
-    color: #f1f5f9 !important;
-    font-family: 'Inter', sans-serif !important;
-    transition: border-color 0.3s ease !important;
-}
-
-/* Ensure inner items in dropdowns are styled correctly */
-.gr-dropdown *, select *, input::placeholder, textarea::placeholder {
-    color: #f1f5f9 !important;
-    background-color: transparent !important;
-}
-
-/* Dropdown option menu background fix */
-ul.options, .gr-dropdown .options {
-    background: rgba(20, 24, 45, 0.95) !important;
-}
-ul.options *, .gr-dropdown .options * {
-    color: #f1f5f9 !important;
-}
-
-.gr-dropdown:focus, select:focus, .gr-input:focus, input:focus, textarea:focus {
-    border-color: var(--crystal-accent) !important;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
-    outline: none !important;
-}
-
-/* Labels and Helper Text */
-label, .gr-label, label span, .gr-form-label, legend {
-    color: #e2e8f0 !important;
-    font-weight: 600 !important;
-    font-size: 13px !important;
-    letter-spacing: 0.03em !important;
-    text-transform: uppercase !important;
-}
-
-span.text-gray-500, p.text-gray-500, [data-testid="block-info"], .gr-block-info {
-    color: #94a3b8 !important;
-    font-weight: 400 !important;
-    text-transform: none !important;
-    letter-spacing: normal !important;
-}
-
-/* Slider track */
-input[type="range"] {
-    accent-color: var(--crystal-accent) !important;
-}
-
-/* ── Investigation logs (textbox) ── */
-textarea {
-    background: rgba(8, 10, 22, 0.8) !important;
-    border: 1px solid var(--crystal-border) !important;
-    border-radius: 12px !important;
-    color: var(--crystal-text) !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 13px !important;
-    line-height: 1.7 !important;
-    padding: 16px !important;
-    transition: border-color 0.3s ease !important;
-}
-
-textarea:focus {
-    border-color: rgba(99,102,241,0.3) !important;
-    box-shadow: 0 0 20px rgba(99,102,241,0.05) !important;
-}
-
-/* ── Stats cards ── */
-.stat-card {
-    background: var(--crystal-glass);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--crystal-border);
-    border-radius: 14px;
-    padding: 20px;
-    text-align: center;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: var(--gradient-primary);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.stat-card:hover {
-    border-color: rgba(99,102,241,0.25);
-    transform: translateY(-2px);
-}
-
-.stat-card:hover::before { opacity: 1; }
-
-.stat-number {
-    font-size: 32px;
-    font-weight: 800;
-    background: linear-gradient(135deg, #a5b4fc, #c4b5fd, #e9d5ff);
+.highlight-entity {
+    background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc, #f472b6, #38bdf8);
+    background-size: 200% auto;
+    color: transparent;
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
-    line-height: 1.2;
-    filter: brightness(1.3);
-}
-
-.stat-label {
-    font-size: 12px;
-    color: var(--crystal-text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 4px;
-}
-
-/* ── Task selector cards ── */
-.task-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 12px;
-    padding: 8px 0;
-}
-
-.task-card {
-    background: var(--crystal-glass);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--crystal-border);
-    border-radius: 12px;
-    padding: 16px 12px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.task-card:hover {
-    border-color: rgba(99,102,241,0.35);
-    transform: translateY(-3px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.15);
-}
-
-.task-card .task-icon {
-    font-size: 28px;
-    margin-bottom: 6px;
-    display: block;
-}
-
-.task-card .task-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--crystal-text);
-    letter-spacing: 0.02em;
-}
-
-/* ── Result verdict badges ── */
-.verdict-badge {
-    display: inline-block;
-    padding: 6px 16px;
-    border-radius: 20px;
     font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    animation: badgePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: textGlow 3s linear infinite;
 }
 
-@keyframes badgePop {
-    0%   { transform: scale(0.5); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
+/* 3. SHINING LAUNCH BUTTON ANIMATION */
+@keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
 }
 
-.verdict-correct {
-    background: rgba(52, 211, 153, 0.15);
-    color: var(--crystal-success);
-    border: 1px solid rgba(52, 211, 153, 0.3);
-}
-
-.verdict-wrong {
-    background: rgba(248, 113, 113, 0.15);
-    color: var(--crystal-danger);
-    border: 1px solid rgba(248, 113, 113, 0.3);
-}
-
-/* ── Step timeline ── */
-.step-entry {
-    padding: 8px 0;
-    border-left: 2px solid var(--crystal-border);
-    padding-left: 16px;
-    margin-left: 8px;
-    position: relative;
-    animation: stepFadeIn 0.3s ease-out;
-}
-
-.step-entry::before {
-    content: '';
-    position: absolute;
-    left: -5px; top: 14px;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--crystal-accent);
-    box-shadow: 0 0 8px rgba(99,102,241,0.4);
-}
-
-@keyframes stepFadeIn {
-    0%   { opacity: 0; transform: translateX(-10px); }
-    100% { opacity: 1; transform: translateX(0); }
-}
-
-/* ── Progress bar ── */
-.progress-bar-container {
-    background: rgba(15, 18, 35, 0.6);
-    border-radius: 8px;
-    height: 8px;
-    overflow: hidden;
-    border: 1px solid var(--crystal-border);
-}
-
-.progress-bar-fill {
-    height: 100%;
-    border-radius: 8px;
-    background: var(--gradient-primary);
-    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-}
-
-.progress-bar-fill::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-    animation: progressShimmer 2s infinite;
-}
-
-@keyframes progressShimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-    background: rgba(99,102,241,0.2);
-    border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.35); }
-
-/* ── Markdown overrides ── */
-.prose h1, .prose h2, .prose h3, h1, h2, h3 {
-    color: var(--crystal-text) !important;
-}
-
-.prose p, p { color: var(--crystal-text-dim) !important; }
-.prose a, a { color: var(--crystal-accent-bright) !important; }
-
-/* ── Accordion overrides ── */
-.gr-accordion {
-    background: var(--crystal-glass) !important;
-    border: 1px solid var(--crystal-border) !important;
+button.primary {
+    background: linear-gradient(110deg, #6366f1 0%, #ec4899 40%, #c084fc 50%, #ec4899 60%, #6366f1 100%) !important;
+    background-size: 200% auto !important;
+    border: none !important;
+    color: white !important;
+    font-family: var(--font-ui) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
     border-radius: 12px !important;
+    box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4) !important;
+    animation: shimmer 5s linear infinite !important;
+    transition: transform 0.2s !important;
+    padding: 14px 24px !important;
 }
 
-/* ── HTML component backgrounds ── */
-.gr-html, .prose {
+button.primary:hover {
+    transform: scale(1.03) !important;
+    box-shadow: 0 10px 30px rgba(6, 182, 212, 0.6) !important;
+}
+
+/* 4. SLIDE UP FADE ACTION LOGS */
+@keyframes slideUpFade {
+    0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.log-entry {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid #818cf8;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.log-time { 
+    font-size: 11px;
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.log-text {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+/* 5. FLOATING 3D CARDS ANIMATION */
+.meta-grid {
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 14px; 
+    padding: 0 30px 30px 30px;
+}
+.meta-card {
+    background: rgba(255,255,255,0.03);
+    padding: 16px;
+    border-radius: 14px;
+    text-align: center;
+    border: 1px solid var(--border-glass);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.meta-card:hover { 
+    transform: translateY(-8px) scale(1.02); 
+    background: rgba(255,255,255,0.08);
+    border-color: #38bdf8;
+    box-shadow: 0 10px 20px rgba(6, 182, 212, 0.2);
+}
+.meta-label { font-size: 10px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+.meta-value { font-size: 16px; color: #f8fafc; font-weight: 600; margin-top: 6px; }
+
+/* 6. STATUS DOT ANIMATIONS */
+@keyframes radar-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-glass);
+}
+.status-online { border-color: rgba(6, 182, 212, 0.3); color: #22d3ee; }
+.dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #06b6d4;
+    animation: radar-pulse 2s infinite;
+}
+
+/* 7. SCANNER LINE ANIMATION for Center Panel */
+@keyframes scanline {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+.scanner-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+}
+
+.scanner-container::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.8), transparent);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    animation: scanline 4s linear infinite;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Gradio 6.x Component Overrides — force dark theme on all form elements */
+.gradio-container input,
+.gradio-container select,
+.gradio-container .wrap,
+.gradio-container .secondary-wrap,
+.gradio-container ul.options li {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+/* Force dark backgrounds on all Gradio block/panel wrappers */
+.gradio-container .block,
+.gradio-container .form,
+.gradio-container .panel,
+.gradio-container .compact,
+.gradio-container .contain,
+.gradio-container .gap,
+.gradio-container div[class*="row"],
+.gradio-container div[class*="column"] {
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Dropdown and slider wrapper panels */
+.gradio-container .gr-block,
+.gradio-container .gr-box,
+.gradio-container .gr-form,
+.gradio-container .gr-panel,
+.gradio-container .gr-compact,
+.gradio-container .gr-padded,
+.gradio-container .gr-group,
+.gradio-container [class*="block_"] {
     background: transparent !important;
 }
 
-/* ── Pulse animation for live status ── */
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+/* Labels */
+.gradio-container label,
+.gradio-container .label-wrap,
+.gradio-container span[data-testid="block-label"],
+.gradio-container .gradio-slider label,
+.gradio-container .gradio-dropdown label {
+    color: var(--text-secondary) !important;
+    font-family: var(--font-ui) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
 }
 
-.pulse { animation: pulse 2s ease-in-out infinite; }
-
-/* ── Fade-in for sections ── */
-@keyframes fadeInUp {
-    0%   { opacity: 0; transform: translateY(16px); }
-    100% { opacity: 1; transform: translateY(0); }
+/* Dropdown specific */
+.gradio-container .gradio-dropdown,
+.gradio-container [data-testid="dropdown"],
+.gradio-container .multiselect-dropdown {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 10px !important;
+    color: white !important;
 }
 
-.fade-in { animation: fadeInUp 0.5s ease-out; }
-
-/* ── Glow ring animation for active investigation ── */
-@keyframes glowRing {
-    0%   { box-shadow: 0 0 5px rgba(99,102,241,0.2); }
-    50%  { box-shadow: 0 0 20px rgba(99,102,241,0.3), 0 0 40px rgba(99,102,241,0.1); }
-    100% { box-shadow: 0 0 5px rgba(99,102,241,0.2); }
+/* Slider specific */
+.gradio-container .gradio-slider input[type="range"] {
+    accent-color: #818cf8 !important;
+}
+.gradio-container .gradio-slider input[type="number"] {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: white !important;
+    border-radius: 8px !important;
 }
 
-.glow-active {
-    animation: glowRing 2s ease-in-out infinite;
+/* Row variant=compact — Gradio 6 wraps this with a visible border+bg */
+.gradio-container .row,
+.gradio-container [class*="row_"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
+
+/* Status bar bottom section */
+.statusbar-container {
+    margin-top: 12px;
+}
+
 """
 
+# ─── HTML Builders ────────────────────────────────────────────────────────────
 
-# ── HTML Builders ─────────────────────────────────────────────────────────────
+def _topnav_html():
+    return f"""
+    <div style="display:flex; align-items:center; justify-content:space-between; padding: 20px 30px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex; align-items:center; gap:16px;">
+            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #06b6d4, #ec4899); display:flex; align-items:center; justify-content:center; color:white; font-size:20px; box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);">🛡️</div>
+            <div>
+                <div style="font-weight:700; font-size:20px; letter-spacing:-0.02em; color:white;">MisInfo Forensics</div>
+                <div style="font-size:12px; color:#38bdf8; font-weight:500; letter-spacing:0.04em;">Vibrant Analysis Core</div>
+            </div>
+        </div>
+        <div class="status-badge status-online">
+            <div class="dot"></div> System Ready
+        </div>
+    </div>
+    """
 
-def build_hero_html():
+def _statusbar_html(node_status="OPTIMAL", packets="0.0K/S"):
+    return f"""
+    <div style="font-size:11px; color:#94a3b8; display:flex; justify-content:space-between; margin-top:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+        <span>NET_LINK: <span style="color:#06b6d4; font-weight:600;">{node_status}</span></span>
+        <span>BANDWIDTH: <span style="color:#06b6d4;">{packets}</span></span>
+    </div>
+    """
+
+def _left_panel_idle():
+    return f"""
+    <div style="padding:24px;">
+        <div style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:20px;">Live Feed</div>
+        <div style="text-align:center; padding:50px 20px; color:var(--text-secondary);">
+            <div style="font-size:24px; margin-bottom:12px; opacity:0.5;">📡</div>
+            <div style="font-size:13px; font-weight:500;">Awaiting Task Initialization</div>
+        </div>
+    </div>
+    """
+
+def _left_panel_active(log_entries):
+    entries_html = ""
+    for t, msg in log_entries:
+        entries_html += f'<div class="log-entry"><span class="log-time">{t}</span><span class="log-text">{msg}</span></div>'
+    return f"""
+    <div style="padding:24px;">
+        <div style="font-size:11px; color:#c084fc; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Live Feed</span>
+            <span style="font-size:20px; animation: textGlow 1.5s infinite alternate;">⚡</span>
+        </div>
+        {entries_html}
+    </div>
+    """
+
+def _center_idle():
     return """
-    <div id="forge-hero">
-        <div style="font-size: 48px; margin-bottom: 8px; filter: drop-shadow(0 0 20px rgba(99,102,241,0.3));">🔬</div>
-        <h1 style="
-            font-size: 36px; font-weight: 900; margin: 0 0 6px;
-            background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text; letter-spacing: -0.02em;
-        ">FORGE</h1>
-        <p style="
-            font-size: 15px; color: #94a3b8; margin: 0 0 4px;
-            font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase;
-        ">Forensic RL Graph Environment</p>
-        <p style="
-            font-size: 13px; color: #64748b; margin: 0;
-            max-width: 520px; margin: 4px auto 0;
-            line-height: 1.6;
-        ">AI-powered misinformation investigation using reinforcement learning,
-        graph reasoning, and LLM chain-of-thought analysis</p>
+    <div class="scanner-container" style="height:350px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-secondary);">
+        <div style="font-size:50px; margin-bottom:24px; opacity:0.8; filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.4));">🔍</div>
+        <div style="font-size:15px; font-weight:500; letter-spacing:0.02em;">Select forensic protocol below</div>
+    </div>
+    """
 
-        <div style="display: flex; justify-content: center; gap: 24px; margin-top: 20px;">
-            <div class="stat-card" style="min-width: 110px;">
-                <div class="stat-number">{n_tasks}</div>
-                <div class="stat-label">Task Types</div>
-            </div>
-            <div class="stat-card" style="min-width: 110px;">
-                <div class="stat-number">13</div>
-                <div class="stat-label">Actions</div>
-            </div>
-            <div class="stat-card" style="min-width: 110px;">
-                <div class="stat-number">5</div>
-                <div class="stat-label">Verdicts</div>
-            </div>
-            <div class="stat-card" style="min-width: 110px;">
-                <div class="stat-number">∞</div>
-                <div class="stat-label">Scenarios</div>
+def _center_active(claim_text, task_id, virality, source_dom, status_str):
+    highlighted = re.sub(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', r'<span class="highlight-entity">\1</span>', claim_text)
+    return f"""
+    <div class="scanner-container" style="padding: 24px; min-height:350px;">
+        <div style="display:flex; justify-content:center; margin-bottom:20px;">
+            <div class="status-badge" style="background:rgba(236,72,153,0.1); border-color:rgba(236,72,153,0.3); color:#fbcfe8;">
+                Target • {task_id.replace('_', ' ').title()}
             </div>
         </div>
+        <div class="claim-text">"{highlighted}"</div>
+        <div class="meta-grid">
+            <div class="meta-card"><div class="meta-label">Node Source</div><div class="meta-value">{source_dom.title()}</div></div>
+            <div class="meta-card"><div class="meta-label">Viral Index</div><div class="meta-value">{virality*100:.1f}%</div></div>
+            <div class="meta-card"><div class="meta-label">Status</div><div class="meta-value" style="color:#38bdf8;">{status_str}</div></div>
+        </div>
     </div>
-    """.format(n_tasks=len(TASK_REGISTRY))
+    """
 
-
-def build_task_cards_html():
-    cards = ""
-    for tid, meta in TASK_META.items():
-        if tid in TASK_REGISTRY:
-            nice_name = tid.replace("_", " ").title()
-            cards += f"""
-            <div class="task-card" title="{meta['desc']}">
-                <span class="task-icon">{meta['icon']}</span>
-                <span class="task-name">{nice_name}</span>
-            </div>"""
-    return f'<div class="task-grid">{cards}</div>'
-
-
-def build_idle_status():
+def _right_panel_idle():
     return """
-    <div style="
-        text-align: center; padding: 60px 24px;
-        color: #64748b; font-size: 14px;
-    ">
-        <div style="font-size: 56px; margin-bottom: 16px; opacity: 0.4;">🔍</div>
-        <p style="margin: 0; font-weight: 500; color: #94a3b8;">Ready to investigate</p>
-        <p style="margin: 4px 0 0; font-size: 13px;">Select a task and press <strong style="color: #818cf8;">Start Investigation</strong></p>
-    </div>
-    """
-
-
-def build_step_html(step_num, action_name, max_steps, coverage, contradictions):
-    icon = ACTION_ICONS.get(action_name, "🔧")
-    pct = min(100, int((step_num / max(max_steps, 1)) * 100))
-    is_verdict = action_name.startswith("submit_verdict")
-    nice_action = action_name.replace("_", " ").title()
-
-    step_class = "step-entry"
-    action_style = f"color: {'#34d399' if is_verdict else '#818cf8'}; font-weight: 600;"
-
-    return f"""
-    <div class="{step_class}">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <span style="font-size: 16px;">{icon}</span>
-            <span style="{action_style}; font-size: 14px;">{nice_action}</span>
-            <span style="margin-left: auto; font-size: 11px; color: #64748b;">Step {step_num}/{max_steps}</span>
-        </div>
-        <div class="progress-bar-container" style="margin-top: 4px;">
-            <div class="progress-bar-fill" style="width: {pct}%;"></div>
-        </div>
-        <div style="display: flex; gap: 16px; margin-top: 6px; font-size: 11px; color: #94a3b8;">
-            <span>Coverage: {coverage:.0%}</span>
-            <span>Contradictions: {contradictions}</span>
+    <div style="padding:24px; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-secondary);">
+        <div style="text-align:center;">
+            <div style="font-size:35px; opacity:0.4; margin-bottom:12px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">🧠</div>
+            <div style="font-size:13px; font-weight:500;">Brain Offline</div>
         </div>
     </div>
     """
 
-
-def build_result_html(verdict, true_label, correct, steps_used, max_steps, reward):
-    verdict_icon = VERDICT_EMOJI.get(verdict, "❓")
-    true_icon = VERDICT_EMOJI.get(true_label, "❓")
-    badge_class = "verdict-correct" if correct else "verdict-wrong"
-    badge_text = "CORRECT" if correct else "INCORRECT"
-    result_emoji = "🎉" if correct else "💔"
-
+def _right_panel_active(think, predict, fsm_state, step_num, coverage, contras):
     return f"""
-    <div style="
-        padding: 28px; text-align: center;
-        animation: fadeInUp 0.5s ease-out;
-    ">
-        <div style="font-size: 48px; margin-bottom: 12px;">{result_emoji}</div>
+    <div style="padding:24px;">
+        <div style="font-size:11px; color:#f472b6; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:20px;">Agent Thought Stream</div>
+        
+        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(236, 72, 153, 0.2); border-radius:14px; padding:18px; margin-bottom:20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);">
+            <div style="font-size:13px; line-height:1.6; color:#e2e8f0; font-weight:400; font-style:italic;">
+                "{think[:350]}..."
+            </div>
+        </div>
 
-        <span class="verdict-badge {badge_class}">{badge_text}</span>
+        <div style="display:flex; gap:10px; font-size:10px; font-weight:700; color:var(--text-secondary);">
+            <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px; border-radius:10px; flex:1; text-align:center;">STEP<br><span style="font-size:16px; color:white; font-weight:600;">{step_num}</span></div>
+            <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); padding:10px; border-radius:10px; flex:1; text-align:center;">COV<br><span style="font-size:16px; color:#38bdf8; font-weight:600;">{coverage:.0%}</span></div>
+            <div style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); padding:10px; border-radius:10px; flex:1; text-align:center; color:#c4b5fd;">STATE<br><span style="font-size:11px;">{fsm_state[:8]}</span></div>
+        </div>
+    </div>
+    """
 
-        <div style="
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 16px; margin-top: 24px; max-width: 400px; margin-left: auto; margin-right: auto;
-        ">
-            <div class="stat-card">
-                <div style="font-size: 24px; margin-bottom: 4px;">{verdict_icon}</div>
-                <div style="font-size: 14px; font-weight: 700; color: #e2e8f0;">{(verdict or 'N/A').replace('_',' ').title()}</div>
-                <div class="stat-label">Predicted</div>
+def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
+    badge_bg = "rgba(16, 185, 129, 0.1)" if correct else "rgba(2ef, 68, 68, 0.1)"
+    badge_border = "rgba(16, 185, 129, 0.4)" if correct else "rgba(2ef, 68, 68, 0.4)"
+    badge_color = "#34d399" if correct else "#fca5a5"
+    badge_text = "VERIFIED REAL" if correct else "MISINFO FLAGGED"
+    icon = "✅" if correct else "🚨"
+    return f"""
+    <div style="padding:24px;">
+        <div style="font-size:11px; color:#f8fafc; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:20px;">Resolution</div>
+        
+        <div style="text-align:center; padding:30px 20px; border-radius:18px; background:{badge_bg}; border: 2px solid {badge_border}; margin-bottom:20px; animation: slideUpFade 0.7s cubic-bezier(0.16, 1, 0.3, 1);">
+            <div style="font-size:36px; margin-bottom:12px; filter:drop-shadow(0 0 10px {badge_color});">{icon}</div>
+            <div style="font-size:22px; font-weight:700; color:{badge_color}; letter-spacing:0.02em;">{badge_text}</div>
+            <div style="font-size:12px; font-weight:600; color:white; opacity:0.9; margin-top:10px; background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:10px; display:inline-block;">Confidence {confidence:.1%}</div>
+        </div>
+        
+        <div style="background:rgba(0,0,0,0.3); border-radius:14px; border:1px solid rgba(255,255,255,0.1); padding:16px;">
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:10px;">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">Ground Truth</span>
+                <span style="font-size:13px; color:white; font-weight:600;">{true_label.title()}</span>
             </div>
-            <div class="stat-card">
-                <div style="font-size: 24px; margin-bottom: 4px;">{true_icon}</div>
-                <div style="font-size: 14px; font-weight: 700; color: #e2e8f0;">{true_label.replace('_',' ').title()}</div>
-                <div class="stat-label">True Label</div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px; margin-bottom:10px;">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">Steps</span>
+                <span style="font-size:13px; color:white; font-weight:600;">{steps}</span>
             </div>
-            <div class="stat-card">
-                <div class="stat-number" style="font-size: 22px;">{steps_used}/{max_steps}</div>
-                <div class="stat-label">Steps Used</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" style="font-size: 22px;">{reward:.3f}</div>
-                <div class="stat-label">Reward</div>
+            <div style="display:flex; justify-content:space-between;">
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">Reward</span>
+                <span style="font-size:13px; color:#34d399; font-weight:700;">{reward:.2f}</span>
             </div>
         </div>
     </div>
     """
 
-
-def build_claim_panel(claim_text, task_id, difficulty):
-    meta = TASK_META.get(task_id, {"icon": "🔬", "color": "#818cf8", "desc": ""})
-    nice_task = task_id.replace("_", " ").title()
-    diff_dots = "●" * difficulty + "○" * (4 - difficulty)
-    diff_color = ["#34d399", "#fbbf24", "#f97316", "#ef4444"][difficulty - 1]
-
-    return f"""
-    <div style="
-        background: rgba(15, 18, 35, 0.6);
-        border: 1px solid rgba(100, 120, 255, 0.12);
-        border-radius: 14px; padding: 20px;
-        margin-bottom: 12px;
-        animation: fadeInUp 0.4s ease-out;
-    ">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-            <span style="font-size: 22px;">{meta['icon']}</span>
-            <span style="font-weight: 700; color: #e2e8f0; font-size: 15px;">{nice_task}</span>
-            <span style="
-                margin-left: auto; font-size: 13px; letter-spacing: 0.15em;
-                color: {diff_color}; font-weight: 600;
-            ">{diff_dots}</span>
-        </div>
-        <div style="
-            font-style: italic; color: #cbd5e1;
-            font-size: 14px; line-height: 1.6;
-            padding: 12px 16px;
-            background: rgba(8, 10, 22, 0.5);
-            border-radius: 10px;
-            border-left: 3px solid {meta['color']};
-        ">"{claim_text}"</div>
-    </div>
-    """
-
-
-def build_thinking_html(think_text, predict_text):
-    if not think_text:
-        return ""
-    return f"""
-    <div style="
-        background: rgba(99,102,241,0.06);
-        border: 1px solid rgba(99,102,241,0.12);
-        border-radius: 10px; padding: 12px 16px;
-        margin-top: 8px; font-size: 12px; line-height: 1.6;
-    ">
-        <div style="color: #a5b4fc; font-weight: 600; margin-bottom: 4px;">💭 Agent Reasoning</div>
-        <div style="color: #94a3b8;">{think_text[:300]}</div>
-        {f'<div style="color: #64748b; margin-top: 4px; font-style: italic;">Prediction: {predict_text[:150]}</div>' if predict_text else ''}
-    </div>
-    """
-
-
-# ── Investigation Logic ──────────────────────────────────────────────────────
+# ─── Investigation Logic ──────────────────────────────────────────────────────
 
 def investigate(task_name, difficulty):
-    agent = LLMAgent()
+    try:
+        yield from _investigate_inner(task_name, int(difficulty))
+    except Exception as exc:
+        import traceback
+        err = f"[ERR] {exc}\n{traceback.format_exc()[-600:]}"
+        err_panel = f"""
+        <div id="center-panel">
+            <div style="
+                background:rgba(255,45,107,0.06); border:1px solid rgba(255,45,107,0.2);
+                border-radius:6px; padding:20px; font-family:'Share Tech Mono',monospace;
+                font-size:11px; color:#ff2d6b; max-width:480px;
+            ">
+                <div style="letter-spacing:0.15em; margin-bottom:8px;">SYSTEM_ERROR</div>
+                <pre style="white-space:pre-wrap; color:#94a3b8;">{err}</pre>
+            </div>
+        </div>"""
+        yield (_left_panel_idle(), err_panel, _right_panel_idle(),
+               _statusbar_html("ERROR", "0.0K/S"), gr.update(interactive=True))
 
+def _investigate_inner(task_name, difficulty):
+    agent = LLMAgent()
     if task_name == "All Tasks (Random)":
-        env = MisInfoForensicsEnv(difficulty=int(difficulty))
+        env = MisInfoForensicsEnv(difficulty=difficulty)
     else:
-        env = MisInfoForensicsEnv(task_names=[task_name], difficulty=int(difficulty))
+        env = MisInfoForensicsEnv(task_names=[task_name], difficulty=difficulty)
+
     ep_seed = int(time.time()) % 100000
     obs, info = env.reset(seed=ep_seed)
-
     if hasattr(agent, "reset"):
         agent.reset()
 
     claim_text = env.graph.root.text if env.graph else ""
     task_id = info.get("task_id", "unknown")
+    source_dom = env.graph.root.domain if env.graph else "unknown"
+    virality = env.graph.root.virality_score if env.graph else 0.5
 
-    # Build initial state
-    claim_html = build_claim_panel(claim_text, task_id, int(difficulty))
-    steps_html = ""
-    thinking_html = ""
-    result_html = """
-        <div style="text-align: center; padding: 40px; color: #64748b;">
-            <div style="font-size: 32px; margin-bottom: 8px;" class="pulse">🔬</div>
-            <p style="font-size: 13px; margin: 0;">Investigation in progress…</p>
-        </div>
-    """
+    log_entries = []
+    start_time = time.time()
 
-    # Status indicator
-    status_html = f"""
-        <div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 16px; font-size: 13px;
-            background: rgba(99,102,241,0.08);
-            border: 1px solid rgba(99,102,241,0.15);
-            border-radius: 8px;
-        ">
-            <div style="
-                width: 8px; height: 8px; border-radius: 50%;
-                background: #818cf8;
-            " class="pulse"></div>
-            <span style="color: #a5b4fc; font-weight: 500;">Investigating {task_id.replace('_',' ').title()}…</span>
-        </div>
-    """
+    def _ts():
+        elapsed = time.time() - start_time
+        return f"{int(elapsed // 60):02d}:{int(elapsed % 60):02d}"
 
-    yield claim_html, steps_html + thinking_html, result_html, status_html
+    log_entries.append((_ts(), f'Task init: <b style="color:white;">{task_id.replace("_", " ").title()}</b>'))
+    
+    yield (
+        _left_panel_active(log_entries),
+        _center_active(claim_text, task_id, virality, source_dom, "Waking API..."),
+        _right_panel_idle(),
+        _statusbar_html("ACTIVE", f"{random.uniform(0.8,2.0):.1f}K/S"),
+        gr.update(interactive=False),
+    )
 
     done = False
-    verdict = None
     step_info = {}
     final_reward = 0.0
 
@@ -777,7 +547,7 @@ def investigate(task_name, difficulty):
             "coverage": env.graph.evidence_coverage if env.graph else 0.0,
             "contradictions": env.graph.contradiction_surface_area if env.graph else 0,
             "last_tool_result": step_info.get("tool_result"),
-            "claim_text": env.graph.root.text if env.graph else "",
+            "claim_text": claim_text,
         }
         action = agent.act(obs, context=context)
         action_name = ACTIONS[action]
@@ -785,175 +555,98 @@ def investigate(task_name, difficulty):
         done = terminated or truncated
         final_reward = reward
 
-        if step_info.get("verdict"):
-            verdict = step_info["verdict"]
-
-        # Build step visualization
         coverage = env.graph.evidence_coverage if env.graph else 0.0
         contras = env.graph.contradiction_surface_area if env.graph else 0
-        steps_html += build_step_html(env.steps, action_name, env.max_steps, coverage, contras)
+        last = agent.reasoning_log[-1] if agent.reasoning_log else {}
+        think = last.get("think", "Reviewing entity correlations...")
+        predict = last.get("predict", "")
 
-        # Agent reasoning
-        last_thought = agent.reasoning_log[-1] if agent.reasoning_log else {}
-        thinking_html = build_thinking_html(
-            last_thought.get("think", ""),
-            last_thought.get("predict", ""),
+        icon = ACTION_ICONS.get(action_name, "⚡")
+        formatted_action = action_name.replace("_", " ").title()
+        log_entries.append((_ts(), f'{icon} <b>{formatted_action}</b> <span style="color:#34d399; float:right; font-size:12px; font-weight:700;">{reward:+.2f}</span>'))
+        visible_log = log_entries[-10:]
+        fsm_state = getattr(agent, "_fsm_state", "Compute")
+
+        yield (
+            _left_panel_active(visible_log),
+            _center_active(claim_text, task_id, virality, source_dom, "Analyzing Elements..."),
+            _right_panel_active(think, predict, fsm_state, env.steps, coverage, contras),
+            _statusbar_html("ACTIVE", f"{random.uniform(1.0,3.5):.1f}K/S"),
+            gr.update(interactive=False),
         )
 
-        yield claim_html, steps_html + thinking_html, result_html, status_html
-
-    # Final result
     true_label = env.graph.true_label if env.graph else "unknown"
+    verdict = step_info.get("verdict")
     correct = (verdict == true_label)
+    confidence = env._estimate_confidence() if hasattr(env, "_estimate_confidence") else 0.85
 
-    result_html = build_result_html(
-        verdict, true_label, correct,
-        env.steps, env.max_steps, final_reward,
+    yield (
+        _left_panel_active(log_entries[-12:]),
+        _center_active(claim_text, task_id, virality, source_dom, "VERIFIED" if correct else "FLAGGED"),
+        _right_panel_done(verdict, true_label, correct, env.steps, final_reward, confidence),
+        _statusbar_html("OPTIMAL" if correct else "ALERT", f"{random.uniform(0.5,1.5):.1f}K/S"),
+        gr.update(interactive=True),
     )
 
-    status_color = "#34d399" if correct else "#f87171"
-    status_text = "Verdict Correct! ✅" if correct else "Verdict Incorrect ❌"
-    status_html = f"""
-        <div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 16px; font-size: 13px;
-            background: rgba({'52,211,153' if correct else '248,113,113'},0.08);
-            border: 1px solid rgba({'52,211,153' if correct else '248,113,113'},0.2);
-            border-radius: 8px;
-        ">
-            <div style="
-                width: 8px; height: 8px; border-radius: 50%;
-                background: {status_color};
-            "></div>
-            <span style="color: {status_color}; font-weight: 600;">{status_text}</span>
-            <span style="margin-left: auto; color: #94a3b8; font-size: 12px;">{env.steps} steps · {final_reward:.3f} reward</span>
-        </div>
-    """
+# ─── Gradio App ───────────────────────────────────────────────────────────────
 
-    yield claim_html, steps_html + thinking_html, result_html, status_html
-
-
-# ── Gradio App ────────────────────────────────────────────────────────────────
-
-CRYSTALLINE_THEME = gr.themes.Base(
-    primary_hue="indigo",
-    secondary_hue="purple",
+NEBULA_THEME = gr.themes.Base(
+    primary_hue="blue",
+    secondary_hue="fuchsia",
     neutral_hue="slate",
     font=gr.themes.GoogleFont("Inter"),
-    font_mono=gr.themes.GoogleFont("JetBrains Mono"),
 ).set(
-    body_background_fill="*neutral_950",
+    body_background_fill="transparent",
     block_background_fill="transparent",
     block_border_width="0px",
-    panel_background_fill="transparent",
-    input_background_fill="*neutral_900",
+    input_background_fill="rgba(0,0,0,0.3)",
+    input_border_color="rgba(255,255,255,0.15)",
+    input_border_width="1px",
+    input_radius="10px",
+    background_fill_primary="transparent",
 )
 
-with gr.Blocks(
-    title="FORGE — MisInfo Forensics Investigation AI",
-    theme=CRYSTALLINE_THEME,
-    css=CRYSTALLINE_CSS,
-) as demo:
-    gr.HTML(f"<style>{CRYSTALLINE_CSS}</style>")
+with gr.Blocks(title="Forensics AI // Vibrant Nebula") as demo:
+    gr.HTML(_topnav_html())
 
-    # ── Hero header ──
-    gr.HTML(build_hero_html())
+    with gr.Row(elem_classes=["main-container"]):
+        # Left panel: Logs
+        with gr.Column(scale=3, elem_classes=["glass-panel"]):
+            left_panel = gr.HTML(value=_left_panel_idle())
 
-    # ── Task gallery ──
-    with gr.Accordion("📋 Available Task Scenarios", open=False):
-        gr.HTML(build_task_cards_html())
+        # Center panel: Investigation
+        with gr.Column(scale=6):
+            with gr.Column(elem_classes=["glass-panel"]):
+                center_panel = gr.HTML(value=_center_idle())
+                
+                with gr.Row(variant="compact"):
+                    with gr.Column(scale=3):
+                        task_dd = gr.Dropdown(
+                            choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
+                            value="All Tasks (Random)",
+                            label="Investigation Protocol",
+                        )
+                    with gr.Column(scale=1):
+                        diff_sl = gr.Slider(
+                            minimum=1, maximum=4, step=1, value=1,
+                            label="Depth Level",
+                        )
+                
+                with gr.Row():
+                    start_btn = gr.Button("Launch Deep Analysis", variant="primary")
+                
+                statusbar = gr.HTML(value=_statusbar_html("IDLE", "0.0K/S"))
 
-    # ── Control panel ──
-    with gr.Row(equal_height=True):
-        with gr.Column(scale=2):
-            task_choices = ["All Tasks (Random)"] + list(TASK_REGISTRY.keys())
-            task_dropdown = gr.Dropdown(
-                choices=task_choices,
-                value="All Tasks (Random)",
-                label="🔬 Investigation Scenario",
-                info="Choose a specific misinformation type or random selection",
-            )
-        with gr.Column(scale=1):
-            difficulty_slider = gr.Slider(
-                minimum=1, maximum=4, step=1, value=1,
-                label="⚡ Difficulty Level",
-                info="Higher = more tactics, noisy evidence",
-            )
-        with gr.Column(scale=1, min_width=180):
-            start_btn = gr.Button(
-                "🚀 Start Investigation",
-                variant="primary",
-                size="lg",
-            )
+        # Right panel: Reasoning
+        with gr.Column(scale=3, elem_classes=["glass-panel"]):
+            right_panel = gr.HTML(value=_right_panel_idle())
 
-    # ── Status bar ──
-    status_display = gr.HTML(
-        value="""<div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 8px 16px; font-size: 13px;
-            background: rgba(30, 35, 65, 0.45);
-            border: 1px solid rgba(100, 120, 255, 0.12);
-            border-radius: 8px;
-        ">
-            <div style="width: 8px; height: 8px; border-radius: 50%; background: #64748b;"></div>
-            <span style="color: #94a3b8;">Idle — Ready for investigation</span>
-        </div>"""
-    )
-
-    # ── Main content ──
-    with gr.Row(equal_height=False):
-        with gr.Column(scale=3):
-            # Claim under investigation
-            claim_display = gr.HTML(value=build_idle_status())
-
-            # Investigation timeline
-            with gr.Accordion("🕵️ Investigation Timeline", open=True):
-                timeline_display = gr.HTML(value="")
-
-        with gr.Column(scale=2):
-            # Result panel
-            gr.HTML("""
-                <div style="
-                    font-size: 12px; text-transform: uppercase;
-                    letter-spacing: 0.08em; color: #64748b;
-                    font-weight: 600; margin-bottom: 8px; padding-left: 4px;
-                ">📊 Investigation Result</div>
-            """)
-            result_display = gr.HTML(
-                value="""
-                <div style="
-                    text-align: center; padding: 48px 24px;
-                    color: #475569; font-size: 13px;
-                ">
-                    <div style="font-size: 40px; margin-bottom: 12px; opacity: 0.3;">📊</div>
-                    <p style="margin: 0;">Results will appear here</p>
-                </div>
-                """
-            )
-
-    # ── Footer ──
-    gr.HTML("""
-        <div style="
-            text-align: center; padding: 24px 0 16px;
-            border-top: 1px solid rgba(100, 120, 255, 0.08);
-            margin-top: 24px;
-        ">
-            <p style="font-size: 12px; color: #475569; margin: 0;">
-                FORGE v1.0 · 100% Free-Tier · PyTorch + Gymnasium + FastAPI
-            </p>
-            <p style="font-size: 11px; color: #334155; margin: 4px 0 0;">
-                Powered by Groq (LLaMA 3), Sentence-Transformers, and Open-Source APIs
-            </p>
-        </div>
-    """)
-
-    # ── Wire events ──
+    # Event Wiring
     start_btn.click(
         fn=investigate,
-        inputs=[task_dropdown, difficulty_slider],
-        outputs=[claim_display, timeline_display, result_display, status_display],
+        inputs=[task_dd, diff_sl],
+        outputs=[left_panel, center_panel, right_panel, statusbar, start_btn],
     )
 
-
 if __name__ == "__main__":
-    demo.launch()
+    demo.queue().launch(server_name="0.0.0.0", server_port=7860, theme=NEBULA_THEME, css=FORGE_CSS)

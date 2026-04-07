@@ -46,7 +46,7 @@ class MLPPolicy(nn.Module):
             nn.LayerNorm(hidden),
             nn.ReLU(),
         )
-        self.actor  = nn.Linear(hidden, n_actions)
+        self.actor = nn.Linear(hidden, n_actions)
         self.critic = nn.Linear(hidden, 1)
         self._init_weights()
 
@@ -60,7 +60,7 @@ class MLPPolicy(nn.Module):
     def forward(self, obs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.shared(obs)
         logits = self.actor(h)
-        value  = self.critic(h).squeeze(-1)
+        value = self.critic(h).squeeze(-1)
         return logits, value
 
     def get_action(self, obs: np.ndarray, deterministic: bool = False):
@@ -105,8 +105,8 @@ class GATPolicy(nn.Module):
         in_dim = node_feat_dim
         for i in range(gnn_layers):
             out_dim = gnn_hidden if i < gnn_layers - 1 else gnn_hidden
-            heads   = gnn_heads if i < gnn_layers - 1 else 1
-            concat  = (i < gnn_layers - 1)
+            heads = gnn_heads if i < gnn_layers - 1 else 1
+            concat = (i < gnn_layers - 1)
             self.gat_layers.append(
                 GATConv(in_dim, out_dim, heads=heads, concat=concat, dropout=0.1)
             )
@@ -123,7 +123,7 @@ class GATPolicy(nn.Module):
             nn.Linear(mlp_hidden, mlp_hidden),
             nn.ReLU(),
         )
-        self.actor  = nn.Linear(mlp_hidden, n_actions)
+        self.actor = nn.Linear(mlp_hidden, n_actions)
         self.critic = nn.Linear(mlp_hidden, 1)
 
     def encode_graph(
@@ -146,10 +146,10 @@ class GATPolicy(nn.Module):
         batch: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         graph_emb = self.encode_graph(node_features, edge_index, batch)
-        combined  = torch.cat([graph_emb, obs], dim=-1)
-        h      = self.shared(combined)
+        combined = torch.cat([graph_emb, obs], dim=-1)
+        h = self.shared(combined)
         logits = self.actor(h)
-        value  = self.critic(h).squeeze(-1)
+        value = self.critic(h).squeeze(-1)
         return logits, value
 
     def get_action(

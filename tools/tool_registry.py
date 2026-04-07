@@ -173,17 +173,17 @@ class ToolRegistry:
         from tools.network_cluster import NetworkClusterTool
 
         self._tools = {
-            "query_source":    QuerySourceTool(),
-            "trace_origin":    TraceOriginTool(),
+            "query_source": QuerySourceTool(),
+            "trace_origin": TraceOriginTool(),
             "cross_reference": CrossReferenceTool(),
             "request_context": QuerySourceTool(),   # reuses source tool with context flag
-            "entity_link":     EntityLinkTool(),
-            "temporal_audit":  TemporalAuditTool(),
+            "entity_link": EntityLinkTool(),
+            "temporal_audit": TemporalAuditTool(),
             "network_cluster": NetworkClusterTool(),
         }
         # Singleton fallback for offline mode — created once, not per-call
         self._sim = SimulatedToolRegistry()
-        
+
         db_path = config.DATABASE_URL.replace("sqlite:///", "")
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._cursor = self._conn.cursor()
@@ -216,7 +216,7 @@ class ToolRegistry:
         # Keyed by tool + root claim + graph state hash — fixes stale-result bug where
         # all steps in the same episode shared the same cache key (old: step always = 0)
         cache_key = f"{tool_name}:{graph.root_claim_id}:{graph.wl_hash()}"
-        
+
         self._cursor.execute("SELECT result_json FROM tool_cache WHERE cache_key = ?", (cache_key,))
         row = self._cursor.fetchone()
         if row:

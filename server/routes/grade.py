@@ -22,13 +22,13 @@ async def grade_summary():
     """Aggregate grade statistics across all completed episodes."""
     if not GRADE_LOG:
         return {"episodes": 0, "message": "No graded episodes yet."}
-    n     = len(GRADE_LOG)
-    acc   = sum(g["correct"] for g in GRADE_LOG) / n
+    n = len(GRADE_LOG)
+    acc = sum(g["correct"] for g in GRADE_LOG) / n
     r_avg = sum(g["total_reward"] for g in GRADE_LOG) / n
     return {
-        "total_episodes":  n,
+        "total_episodes": n,
         "overall_accuracy": round(acc, 4),
-        "mean_reward":     round(r_avg, 4),
+        "mean_reward": round(r_avg, 4),
     }
 
 
@@ -50,27 +50,27 @@ async def get_grade(episode_id: str):
 
     env: MisInfoForensicsEnv = record["env"]
     graph = env.graph
-    task  = env.current_task
+    task = env.current_task
 
-    verdict    = record.get("verdict")
+    verdict = record.get("verdict")
     true_label = graph.true_label if graph else "unknown"
-    correct    = (verdict == true_label) if verdict else False
+    correct = (verdict == true_label) if verdict else False
 
     # Efficiency: oracle steps / actual steps (capped at 1.0)
     oracle_steps = task.oracle_steps(graph) if task and graph else 5
-    efficiency   = min(oracle_steps / max(env.steps, 1), 1.0)
+    efficiency = min(oracle_steps / max(env.steps, 1), 1.0)
 
     # Evidence coverage
     coverage = graph.evidence_coverage if graph else 0.0
 
     # Grade breakdown
-    base_score        = 1.0 if correct else 0.0
-    efficiency_score  = round(efficiency * 0.2, 4)
-    coverage_score    = round(coverage * 0.1, 4)
-    manip_score       = 0.1 if (
+    base_score = 1.0 if correct else 0.0
+    efficiency_score = round(efficiency * 0.2, 4)
+    coverage_score = round(coverage * 0.1, 4)
+    manip_score = 0.1 if (
         env.manipulation_flagged and task and task.has_manipulation(graph)
     ) else 0.0
-    fp_penalty        = -0.1 if (
+    fp_penalty = -0.1 if (
         env.manipulation_flagged and task and not task.has_manipulation(graph)
     ) else 0.0
 
@@ -90,7 +90,7 @@ async def get_grade(episode_id: str):
         grade_breakdown={
             "base_correctness": base_score,
             "efficiency_bonus": efficiency_score,
-            "coverage_bonus":   coverage_score,
+            "coverage_bonus": coverage_score,
             "manipulation_bonus": manip_score,
             "false_positive_penalty": fp_penalty,
             "composite_score": total,
@@ -99,11 +99,11 @@ async def get_grade(episode_id: str):
 
     # Log for leaderboard
     GRADE_LOG.append({
-        "episode_id":    episode_id,
-        "agent_id":      record.get("agent_id", "anonymous"),
-        "correct":       correct,
-        "total_reward":  record["total_reward"],
-        "composite":     total,
+        "episode_id": episode_id,
+        "agent_id": record.get("agent_id", "anonymous"),
+        "correct": correct,
+        "total_reward": record["total_reward"],
+        "composite": total,
     })
 
     return grade

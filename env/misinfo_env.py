@@ -39,14 +39,14 @@ ACTIONS = [
     "submit_verdict_real",          # 8
     "submit_verdict_misinfo",       # 9
     "submit_verdict_satire",        # 10
-    "submit_verdict_out_of_context",# 11
+    "submit_verdict_out_of_context",  # 11
     "submit_verdict_fabricated",    # 12
 ]
 N_ACTIONS = len(ACTIONS)
 
 VERDICT_ACTIONS = {
-    8:  "real",
-    9:  "misinfo",
+    8: "real",
+    9: "misinfo",
     10: "satire",
     11: "out_of_context",
     12: "fabricated",
@@ -190,7 +190,6 @@ class MisInfoForensicsEnv(gym.Env):
         # ── Free actions (no step cost) ───────────────────────────────────────
         if action_name == "flag_manipulation":
             self.manipulation_flagged = True
-            self.steps += 1
             reward = 0.0
             info["flagged"] = True
             logger.info("[STEP] %s step=%d action=flag_manipulation",
@@ -217,11 +216,14 @@ class MisInfoForensicsEnv(gym.Env):
                 true_manipulation=self.current_task.has_manipulation(self.graph),
             )
             terminal_r += efficiency_penalty(self.steps, self.graph.difficulty)
-            
+
+            # Policy invariance for terminal states: shaping = 0 - prev_potential
+            terminal_r -= self._prev_potential
+
             # RL hardening: return raw reward for internal logic, but clip for the Gym interface
             info["raw_reward"] = terminal_r
             reward = float(np.clip(terminal_r, config.REWARD_CLIP_MIN, config.REWARD_CLIP_MAX))
-            
+
             terminated = True
             self._done = True
             info.update({
@@ -347,8 +349,14 @@ class MisInfoForensicsEnv(gym.Env):
         """Embed claim text using local sentence-transformers (free, offline)."""
         try:
             if self._embedder is None:
-                from sentence_transformers import SentenceTransformer
-                self._embedder = SentenceTransformer(config.HF_EMBEDDING_MODEL)
+                # Reuse a pre-warmed instance if app.py loaded one at startup
+                # (avoids a 30s blocking download on the first HF Spaces request)
+                shared = getattr(MisInfoForensicsEnv, "_shared_embedder", None)
+                if shared is not None:
+                    self._embedder = shared
+                else:
+                    from sentence_transformers import SentenceTransformer
+                    self._embedder = SentenceTransformer(config.HF_EMBEDDING_MODEL)
             emb = self._embedder.encode(text, normalize_embeddings=True)
             return emb.astype(np.float32)
         except Exception:

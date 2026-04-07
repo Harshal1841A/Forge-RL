@@ -74,7 +74,7 @@ class VerifiedFactTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             template = rng.choice(_VERIFIED_CLAIMS)
             domain = template["real_domain"]
@@ -117,7 +117,7 @@ class VerifiedFactTask(BaseTask):
             auth_text = f"Official statement from {template['real_domain']} confirming current data and status."
         else:
             auth_text = f"Official correction from {template['real_domain']}: {template['correct_stat']}"
-            
+
         auth = ClaimNode(
             node_id=auth_id,
             text=auth_text,
@@ -137,7 +137,7 @@ class VerifiedFactTask(BaseTask):
         for i in range(max(1, difficulty)):
             amp_domain = rng.choice(_SUPPORTING_DOMAINS)
             amp_id = f"node_amp_{i}"
-            
+
             if is_true:
                 amp_text = f"Reporting confirms the findings regarding: {template['text']}"
                 amp_rel = "supports"
@@ -146,7 +146,7 @@ class VerifiedFactTask(BaseTask):
                 amp_text = f"Analysis: discrepancies found in viral claims about {template['real_domain']} reports."
                 amp_rel = "debunks"
                 amp_trust = 0.85
-                
+
             amp = ClaimNode(
                 node_id=amp_id,
                 text=amp_text,
@@ -169,4 +169,3 @@ class VerifiedFactTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "fabricated"
-

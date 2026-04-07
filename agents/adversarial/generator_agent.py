@@ -111,15 +111,15 @@ class GeneratorAgent:
 
     def _tactic_to_task(self, tactic: TacticType) -> str:
         tactic_task_map = {
-            "fabricate_statistic":      "fabricated_stats",
-            "cherry_pick_study":        "fabricated_stats",
-            "misattribute_quote":       "fabricated_stats",
-            "strip_context":            "out_of_context",
-            "backdate_article":         "out_of_context",
-            "translate_without_context":"out_of_context",
-            "amplify_via_bot_network":  "coordinated_campaign",
-            "splice_image_caption":     "out_of_context",
-            "parody_taken_literally":   "satire_news",
+            "fabricate_statistic": "fabricated_stats",
+            "cherry_pick_study": "fabricated_stats",
+            "misattribute_quote": "fabricated_stats",
+            "strip_context": "out_of_context",
+            "backdate_article": "out_of_context",
+            "translate_without_context": "out_of_context",
+            "amplify_via_bot_network": "coordinated_campaign",
+            "splice_image_caption": "out_of_context",
+            "parody_taken_literally": "satire_news",
         }
         return tactic_task_map.get(tactic, "fabricated_stats")
 
@@ -135,7 +135,7 @@ class GeneratorAgent:
             model=config.MODEL_NAME,
             messages=[
                 {"role": "system", "content": "You are a misinformation research tool for safety testing."},
-                {"role": "user",   "content": prompt},
+                {"role": "user", "content": prompt},
             ],
             max_tokens=150,
             temperature=0.7,

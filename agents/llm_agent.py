@@ -33,20 +33,20 @@ FSM_STATES = [
 
 # Actions allowed in each FSM state
 FSM_ALLOWED_ACTIONS: Dict[str, List[str]] = {
-    "INITIAL":           ["query_source", "entity_link"],
-    "SOURCING":          ["query_source", "trace_origin", "request_context", "flag_manipulation"],
-    "TRACING":           ["trace_origin", "temporal_audit", "network_cluster", "flag_manipulation"],
+    "INITIAL": ["query_source", "entity_link"],
+    "SOURCING": ["query_source", "trace_origin", "request_context", "flag_manipulation"],
+    "TRACING": ["trace_origin", "temporal_audit", "network_cluster", "flag_manipulation"],
     "CROSS_REFERENCING": ["cross_reference", "entity_link", "flag_manipulation"],
-    "ENTITY_LINKING":    ["entity_link", "temporal_audit", "cross_reference"],
+    "ENTITY_LINKING": ["entity_link", "temporal_audit", "cross_reference"],
     "TEMPORAL_AUDITING": ["temporal_audit", "cross_reference", "flag_manipulation"],
     "NETWORK_ANALYSING": ["network_cluster", "cross_reference", "flag_manipulation"],
-    "SYNTHESISING":      [
+    "SYNTHESISING": [
         "cross_reference", "request_context", "flag_manipulation",
         "submit_verdict_real", "submit_verdict_misinfo",
         "submit_verdict_satire", "submit_verdict_out_of_context",
         "submit_verdict_fabricated",
     ],
-    "VERDICT_PENDING":   [
+    "VERDICT_PENDING": [
         "submit_verdict_real", "submit_verdict_misinfo",
         "submit_verdict_satire", "submit_verdict_out_of_context",
         "submit_verdict_fabricated",
@@ -130,12 +130,50 @@ class LLMAgent:
 
     def reset(self) -> None:
         self._fsm_state = "INITIAL"
+        self._fsm_steps_in_state = 0
         self._history.clear()
 
-    def act(self, obs: np.ndarray, context: Optional[Dict] = None, **kwargs) -> int:
-        allowed = FSM_ALLOWED_ACTIONS.get(self._fsm_state, ACTIONS)
-        ctx_str = self._build_context(obs, context or {})
+    def act(self, obs: np.ndarray, context: Optional[Dict] = None, **kwargs) -> int:  # noqa: C901
+        ctx = context or {}
+        steps_used = ctx.get('steps', len(self._history))
+        max_steps = ctx.get('max_steps', 12)
+        contradictions = ctx.get('contradictions', 0)
+        coverage = ctx.get('coverage', 0.0)
 
+        allowed = FSM_ALLOWED_ACTIONS.get(self._fsm_state, list(ACTIONS))
+
+        # ── Priority-1: Force a verdict when budget is critically low or FSM demands it ──
+        # This MUST run before the LLM call so the agent always terminates episodes cleanly.
+        force_verdict = (
+            steps_used >= max_steps - 1
+            or self._fsm_state == "VERDICT_PENDING"
+            or getattr(self, "_fsm_steps_in_state", 0) >= 4
+        )
+        if force_verdict:
+            # Graduated 5-class verdict logic
+            if contradictions >= 3:
+                verdict = "submit_verdict_fabricated"
+            elif contradictions >= 1 and coverage > 0.4:
+                verdict = "submit_verdict_misinfo"
+            elif contradictions >= 1:
+                verdict = "submit_verdict_out_of_context"
+            elif coverage > 0.7:
+                verdict = "submit_verdict_real"
+            else:
+                verdict = "submit_verdict_misinfo"   # conservative default
+
+            # Make sure the chosen verdict is reachable from the current FSM state
+            verdict_actions = [a for a in ACTIONS if a.startswith("submit_")]
+            if verdict not in allowed:
+                # Temporarily allow all verdicts — the env accepts any verdict action
+                verdict = next((a for a in verdict_actions if a == verdict), verdict_actions[0])
+
+            self._history.append({"think": "Force-verdict: budget/FSM limit", "predict": "N/A", "action": verdict})
+            self._advance_fsm(verdict)
+            return ACTIONS.index(verdict)
+
+        # ── Priority-2: Ask the LLM ────────────────────────────────────────────
+        ctx_str = self._build_context(obs, ctx)
         if self._openai_client:
             if self.use_ensemble:
                 action_name = self._ensemble_vote(ctx_str, allowed)
@@ -145,45 +183,24 @@ class LLMAgent:
                 self._advance_fsm(action_name)
                 return ACTIONS.index(action_name)
 
-        # Heuristic fallback if LLM client fails or rate limits max out
-        steps_used = context.get('steps', len(self._history)) if context else len(self._history)
-        max_steps = context.get('max_steps', 12) if context else 12
-        
-        if steps_used >= max_steps - 2 or self._fsm_state in ("SYNTHESISING", "VERDICT_PENDING"):
-            contradictions = context.get('contradictions', 0) if context else 0
-            coverage = context.get('coverage', 0.0) if context else 0.0
-
-            # Graduated 5-class verdict logic — previously always picked 'fabricated' for any contradiction
-            if contradictions >= 3:
-                verdict = "submit_verdict_fabricated"   # strong multi-contradiction signal
-            elif contradictions >= 1 and coverage > 0.4:
-                verdict = "submit_verdict_misinfo"      # clear misinformation with evidence
-            elif contradictions >= 1:
-                verdict = "submit_verdict_out_of_context"  # weak contradiction, low coverage
-            elif coverage > 0.7:
-                verdict = "submit_verdict_real"         # high coverage, no contradictions
-            else:
-                verdict = "submit_verdict_misinfo"      # conservative default
-                
-            if verdict in allowed:
-                self._history.append({"think": "Fallback grading", "predict": "N/A", "action": verdict})
-                self._advance_fsm(verdict)
-                return ACTIONS.index(verdict)
-            fallback_verdict = next((a for a in allowed if a.startswith("submit_")), "submit_verdict_misinfo")
-            self._history.append({"think": "Fallback grading", "predict": "N/A", "action": fallback_verdict})
-            self._advance_fsm(fallback_verdict)
-            return ACTIONS.index(fallback_verdict)
-            
+        # ── Priority-3: Random investigative fallback (LLM failed entirely) ───
         investigative_actions = [a for a in allowed if not a.startswith("submit_")]
-        first_investigate = random.choice(investigative_actions) if investigative_actions else "query_source"
-        self._history.append({"think": "Fallback discovery", "predict": "N/A", "action": first_investigate})
-        self._advance_fsm(first_investigate)
-        return ACTIONS.index(first_investigate)
+        pick = random.choice(investigative_actions) if investigative_actions else "query_source"
+
+        if self._history and self._history[-1].get("action") not in allowed:
+            # Preserve LLM 'think' but override the failed action with fallback
+            self._history[-1]["action"] = pick
+            self._history[-1]["predict"] += " (Fallback Override)"
+        else:
+            self._history.append({"think": "Fallback discovery (LLM error)", "predict": "N/A", "action": pick})
+
+        self._advance_fsm(pick)
+        return ACTIONS.index(pick)
 
     def _single_call(self, ctx: str, allowed: List[str]) -> Optional[str]:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": (
+            {"role": "user", "content": (
                 f"Current investigation state:\n{ctx}\n\n"
                 f"Allowed actions: {allowed}\n"
                 f"Choose ONE action from the allowed list."
@@ -240,20 +257,23 @@ class LLMAgent:
         try:
             data = json.loads(raw)
             action = data.get("action", "").strip()
-            think  = data.get("think", "")
+            think = data.get("think", "")
             predict = data.get("predict", "")
+
             self._history.append({"think": think, "predict": predict, "action": action})
-            # Cap history to avoid unbounded memory growth across long runs
             if len(self._history) > 20:
                 self._history = self._history[-20:]
+
             if action in allowed:
                 return action
             for a in allowed:
                 if a in action:
+                    self._history[-1]["action"] = a
                     return a
         except (json.JSONDecodeError, TypeError):
             for a in allowed:
                 if a in raw:
+                    self._history.append({"think": "Parsed from malformed JSON", "predict": "N/A", "action": a})
                     return a
         logger.debug("Could not parse valid action from LLM response")
         return None
@@ -274,17 +294,17 @@ class LLMAgent:
 
     def _advance_fsm(self, action: str) -> None:
         transitions = {
-            ("INITIAL",           "query_source"):     "SOURCING",
-            ("INITIAL",           "entity_link"):      "ENTITY_LINKING",
-            ("SOURCING",          "trace_origin"):     "TRACING",
-            ("SOURCING",          "cross_reference"):  "CROSS_REFERENCING",
-            ("TRACING",           "temporal_audit"):   "TEMPORAL_AUDITING",
-            ("TRACING",           "network_cluster"):  "NETWORK_ANALYSING",
-            ("CROSS_REFERENCING", "entity_link"):      "ENTITY_LINKING",
-            ("ENTITY_LINKING",    "temporal_audit"):   "TEMPORAL_AUDITING",
-            ("NETWORK_ANALYSING", "cross_reference"):  "SYNTHESISING",
-            ("TEMPORAL_AUDITING", "cross_reference"):  "SYNTHESISING",
-            ("CROSS_REFERENCING", "cross_reference"):  "SYNTHESISING",
+            ("INITIAL", "query_source"): "SOURCING",
+            ("INITIAL", "entity_link"): "ENTITY_LINKING",
+            ("SOURCING", "trace_origin"): "TRACING",
+            ("SOURCING", "cross_reference"): "CROSS_REFERENCING",
+            ("TRACING", "temporal_audit"): "TEMPORAL_AUDITING",
+            ("TRACING", "network_cluster"): "NETWORK_ANALYSING",
+            ("CROSS_REFERENCING", "entity_link"): "ENTITY_LINKING",
+            ("ENTITY_LINKING", "temporal_audit"): "TEMPORAL_AUDITING",
+            ("NETWORK_ANALYSING", "cross_reference"): "SYNTHESISING",
+            ("TEMPORAL_AUDITING", "cross_reference"): "SYNTHESISING",
+            ("CROSS_REFERENCING", "cross_reference"): "SYNTHESISING",
         }
         if action.startswith("submit_verdict"):
             self._fsm_state = "VERDICT_PENDING"
@@ -292,9 +312,17 @@ class LLMAgent:
         new_state = transitions.get((self._fsm_state, action))
         if new_state:
             self._fsm_state = new_state
-        elif self._fsm_state not in ("SYNTHESISING", "VERDICT_PENDING"):
-            if len(self._history) > 5:
+            self._fsm_steps_in_state = 0
+            return
+
+        # Track how long we've been stuck in the current state
+        self._fsm_steps_in_state = getattr(self, "_fsm_steps_in_state", 0) + 1
+
+        # Auto-advance out of any non-terminal state after 3 consecutive steps with no transition
+        if self._fsm_state not in ("SYNTHESISING", "VERDICT_PENDING"):
+            if self._fsm_steps_in_state >= 3 or len(self._history) > 5:
                 self._fsm_state = "SYNTHESISING"
+                self._fsm_steps_in_state = 0
 
     @property
     def reasoning_log(self) -> List[Dict]:

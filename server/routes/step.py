@@ -25,9 +25,9 @@ async def take_step(req: StepRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
     done = terminated or truncated
-    record["obs"]          = obs
+    record["obs"] = obs
     record["total_reward"] += reward
-    record["done"]         = done
+    record["done"] = done
 
     if info.get("verdict"):
         record["verdict"] = info["verdict"]

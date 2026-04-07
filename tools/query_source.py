@@ -1,5 +1,5 @@
 """
-QuerySourceTool — free APIs: Wikipedia REST + DuckDuckGo Web Search 
+QuerySourceTool — free APIs: Wikipedia REST + DuckDuckGo Web Search
 No API keys required. Completely free to use.
 """
 
@@ -33,7 +33,7 @@ class QuerySourceTool:
         )
 
         wiki_result = results[0] if not isinstance(results[0], Exception) else {}
-        fc_result   = results[1] if not isinstance(results[1], Exception) else {}
+        fc_result = results[1] if not isinstance(results[1], Exception) else {}
 
         # Update graph with findings
         new_contradictions = 0
@@ -83,19 +83,19 @@ class QuerySourceTool:
         try:
             from duckduckgo_search import DDGS
             loop = asyncio.get_running_loop()  # FIXED: get_event_loop() deprecated in 3.10+ inside async context
-            
+
             def _search():
                 with DDGS() as ddgs:
                     # Search specifically for fact checking terms
                     return list(ddgs.text(f"{query} fact check OR debunked", max_results=3))
-                    
+
             results = await loop.run_in_executor(None, _search)
-            
+
             if results:
                 top_hit = results[0]
                 body = top_hit.get("body", "").lower()
                 rating = "UNKNOWN"
-                
+
                 # Naive text-classification proxy based on fact-checker linguistic patterns
                 if any(w in body for w in ["false", "debunked", "fake", "hoax"]):
                     rating = "FALSE"
@@ -103,12 +103,12 @@ class QuerySourceTool:
                     rating = "TRUE"
                 elif any(w in body for w in ["misleading", "partially"]):
                     rating = "MISLEADING"
-                    
+
                 pub = "Web Search"
                 if "href" in top_hit:
                     # Extract domain name as publisher
                     pub = top_hit["href"].split("/")[2].replace("www.", "")
-                    
+
                 return {
                     "rating": rating,
                     "publisher": pub,

@@ -109,7 +109,7 @@ class SECFraudTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             scenario = rng.choice(_TRUE_SEC_SCENARIOS)
             mismatch = "none"
@@ -122,7 +122,7 @@ class SECFraudTask(BaseTask):
             edge_rel = "contradicts"
 
         graph_id = str(uuid.uuid4())
-        root_id  = "node_root"
+        root_id = "node_root"
 
         # ── Root node: CEO's public statement ───────────────
         pub_domain = f"ir.{scenario['company'].lower().replace(' ', '').replace('.', '')}.com"
@@ -139,10 +139,10 @@ class SECFraudTask(BaseTask):
             virality_score=rng.uniform(0.5, 0.85),
             trust_score=0.9 if is_true else 0.6,
             metadata={
-                "company":        scenario["company"],
-                "ticker":         scenario["ticker"],
-                "filing_type":    scenario["filing_type"],
-                "mismatch":       mismatch,
+                "company": scenario["company"],
+                "ticker": scenario["ticker"],
+                "filing_type": scenario["filing_type"],
+                "mismatch": mismatch,
                 "forensics_domain": "financial",
             },
         )
@@ -193,7 +193,7 @@ class SECFraudTask(BaseTask):
                 f"Analysis: {scenario['company']} CEO statements raise red flags. "
                 f"Analysts note discrepancy between press release and {scenario['filing_type']} filing."
             )
-            
+
         media = ClaimNode(
             node_id=media_id,
             text=media_text,

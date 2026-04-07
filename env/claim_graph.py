@@ -7,7 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Literal, Optional, Tuple
-import hashlib, json
+import hashlib
+import json
 
 
 RelationType = Literal[

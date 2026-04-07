@@ -68,7 +68,7 @@ class CoordinatedCampaignTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             template = rng.choice(_TRUE_CAMPAIGNS)
             domains = template["organic_domains"]
@@ -113,12 +113,12 @@ class CoordinatedCampaignTask(BaseTask):
             domain = domains[i % len(domains)]
             node_prefix = "user" if is_true else "bot"
             bot_id = f"node_{node_prefix}_{i}"
-            
+
             if is_true:
                 text = f"Spreading the word: {template['root_text']} [via genuine account]"
             else:
                 text = f"SHARE THIS: {template['root_text']} [account #{rng.randint(1000,9999)}]"
-            
+
             bot = ClaimNode(
                 node_id=bot_id,
                 text=text,
@@ -149,7 +149,7 @@ class CoordinatedCampaignTask(BaseTask):
             auth_text = f"Official statement from {template['real_source']}: confirmed ongoing efforts and situation."
         else:
             auth_text = f"Official statement from {template['real_source']}: no basis for circulating claims."
-            
+
         auth = ClaimNode(
             node_id=auth_id,
             text=auth_text,

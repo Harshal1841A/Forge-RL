@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Pre-download embedding model (free, cached in image) ──────────────────────
 RUN python -c "from sentence_transformers import SentenceTransformer; \
-               SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+    SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 # ── Application code ──────────────────────────────────────────────────────────
 COPY . .
@@ -37,8 +37,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+# HF Spaces only exposes one port and proxies all traffic through it.
+# Multiple uvicorn workers compete for the same port and cause crashes.
+# Use a single worker; Gradio's queue handles concurrent UI requests internally.
 CMD ["uvicorn", "server.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "7860", \
-     "--workers", "2", \
-     "--log-level", "info"]
+    "--host", "0.0.0.0", \
+    "--port", "7860", \
+    "--workers", "1", \
+    "--log-level", "info"]

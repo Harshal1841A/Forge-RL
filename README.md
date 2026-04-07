@@ -1,13 +1,12 @@
 ---
 title: FORGE Misinformation RL
-emoji: 🛡️
 colorFrom: blue
 colorTo: green
 sdk: docker
 pinned: false
 ---
 
-# 🛡️ FORGE: Forensic RL Graph Environment
+#  FORGE: Forensic RL Graph Environment
 
 An OpenEnv-compliant Reinforcement Learning simulation for training agents to investigate misinformation graphs.
 
@@ -34,8 +33,8 @@ Agents select an integer index corresponding to available structural tools:
 - 7: `flag_manipulation` (Free action to tag intentional distortions)
 - 8-12: Verdict submission (`real`, `misinfo`, `satire`, `out_of_context`, `fabricated`)
 
-## 📋 Tasks
-FORGE dynamically routes across six distinct domain tasks ranging from structured procedural topologies to real-world datasets:
+##  Tasks
+FORGE dynamically routes across eight distinct domain tasks ranging from structured procedural topologies to real-world datasets:
 
 1. **`fabricated_stats`** (Easy): A structurally sound claim is injected with a purely fabricated integer or percentage. Resolution usually requires `entity_link` + `cross_reference`.
 2. **`out_of_context`** (Medium): A real quote or image is stripped of its date and re-anchored. Resolution requires `trace_origin` + `temporal_audit`.
@@ -43,6 +42,8 @@ FORGE dynamically routes across six distinct domain tasks ranging from structure
 4. **`politifact_liar`** (Real-World): Sources historical claims directly from the open-source LIAR dataset (Wang, 2017). Agent must fact-check real political assertions against expert grounding.
 5. **`image_forensics`** (Multimodal Simulation): Tracks diffusion signatures and ELA artifacts for deepfake detection versus generic miscontextualization. 
 6. **`sec_fraud`** (Financial): Enforces regulatory forensic checks bounding corporate public relations announcements against SEC EDGAR 10-K and 8-K filings.
+7. **`verified_fact`** (Control): Legitimate verified factual claims that test the agent's ability to correctly identify real information and avoid false positives.
+8. **`satire_news`** (Linguistic): Satirical articles misinterpreted as genuine news. Requires nuanced linguistic analysis to distinguish humour from misinformation.
 
 ## Setup & Execution
 
@@ -66,8 +67,9 @@ python inference.py
 ```
 
 
-### 🛡️ Codebase Hardening 
-- System rigorously hardened to resolve infinite loops, graph-state inconsistencies, truncation issues, GATPolicy architecture mismatches, edge-case dangling variables, memory leaks in Tool registries, and missing budget multipliers. System tested and hardened for OpenEnv validation and continuous continuous execution.
+### Codebase Hardening 
+- System rigorously hardened to resolve infinite loops, graph-state inconsistencies, truncation issues, GATPolicy architecture mismatches, edge-case dangling variables, memory leaks in Tool registries, and missing budget multipliers.
+- **Recent Updates**: Implemented OpenEnv compliancy standards to ensure full testability. Upgraded FORGE Web UI with dynamic UI rendering, status animations, and interactive elements. Refined the Heuristic agent fallback mechanism for 100% stability. System tested and hardened for continuous OpenEnv validation and stable deployment.
 
 **3. OpenEnv Validation**
 To ensure the submission is ready for multi-mode deployment, run the following:

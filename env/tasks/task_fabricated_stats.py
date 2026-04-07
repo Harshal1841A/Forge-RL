@@ -83,7 +83,7 @@ class FabricatedStatsTask(BaseTask):
     def generate(self, difficulty: int = 1, seed: int = 0) -> ClaimGraph:
         rng = random.Random(seed)
         is_true = rng.random() > 0.5
-        
+
         if is_true:
             template = rng.choice(_TRUE_CLAIMS)
             domain = template["real_domain"]
@@ -98,7 +98,7 @@ class FabricatedStatsTask(BaseTask):
             true_label = "fabricated"
             edge_rel = "contradicts"
             applied_tactics = [template["tactic"]]
-            
+
         graph_id = str(uuid.uuid4())
         root_id = "node_root"
 
@@ -128,7 +128,7 @@ class FabricatedStatsTask(BaseTask):
             auth_text = f"Official page of {template['real_domain']} — confirming research findings: {template['correct_stat']}"
         else:
             auth_text = f"Official page of {template['real_domain']} — no such study found."
-            
+
         auth = ClaimNode(
             node_id=auth_id,
             text=auth_text,
@@ -195,3 +195,27 @@ class FabricatedStatsTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "fabricated"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Evaluate an agent's trace (0.0 to 1.0).
+        Easy Task:
+        1. Agent must use 'entity_link' or 'cross_reference' (+0.5)
+        2. Agent must submit the correct final verdict (+0.5)
+        """
+        score = 0.0
+        used_key_tools = any(
+            step["action"] in ["entity_link", "cross_reference"]
+            for step in episode_trace if "action" in step
+        )
+        if used_key_tools:
+            score += 0.5
+
+        final_verdict = next((step["action"].replace("submit_verdict_", "")
+                              for step in reversed(episode_trace)
+                              if "action" in step and step["action"].startswith("submit_verdict")), None)
+
+        if final_verdict == graph.true_label:
+            score += 0.5
+
+        return score

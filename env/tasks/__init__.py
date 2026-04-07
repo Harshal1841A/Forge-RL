@@ -13,14 +13,14 @@ from env.tasks.task_verified_fact import VerifiedFactTask
 from env.tasks.task_satire_news import SatiricalClaimTask
 
 TASK_REGISTRY = {
-    "fabricated_stats":      FabricatedStatsTask,
-    "out_of_context":        OutOfContextTask,
-    "coordinated_campaign":  CoordinatedCampaignTask,
-    "politifact_liar":       PolitifactTask,
-    "image_forensics":       ImageForensicsTask,
-    "sec_fraud":             SECFraudTask,
-    "verified_fact":         VerifiedFactTask,
-    "satire_news":           SatiricalClaimTask,
+    "fabricated_stats": FabricatedStatsTask,
+    "out_of_context": OutOfContextTask,
+    "coordinated_campaign": CoordinatedCampaignTask,
+    "politifact_liar": PolitifactTask,
+    "image_forensics": ImageForensicsTask,
+    "sec_fraud": SECFraudTask,
+    "verified_fact": VerifiedFactTask,
+    "satire_news": SatiricalClaimTask,
 }
 
 __all__ = [
