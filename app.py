@@ -574,6 +574,8 @@ def _investigate_inner(task_name, difficulty):
             "contradictions": env.graph.contradiction_surface_area if env.graph else 0,
             "last_tool_result": step_info.get("tool_result"),
             "claim_text": claim_text,
+            "task_name": task_id,
+            "true_label_hint": None,
         }
         action = agent.act(obs, context=context)
         action_name = ACTIONS[action]

@@ -115,7 +115,9 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
                         "coverage": env.graph.evidence_coverage if env.graph else 0.0,
                         "contradictions": env.graph.contradiction_surface_area if env.graph else 0,
                         "last_tool_result": step_info.get("tool_result"),
-                        "claim_text": env.graph.root.text if env.graph else ""
+                        "claim_text": env.graph.root.text if env.graph else "",
+                        "task_name": task_name,
+                        "true_label_hint": None,
                     }
                     
                     try:

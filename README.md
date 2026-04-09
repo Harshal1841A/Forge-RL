@@ -1,11 +1,16 @@
 ---
 title: FORGE Misinformation RL
-colorFrom: blue
-colorTo: green
+colorFrom: teal
+colorTo: blue
 sdk: docker
-pinned: false
+pinned: true
 tags:
   - openenv
+  - reinforcement-learning
+  - misinformation
+  - fact-checking
+  - graph-neural-network
+  - natural-language-processing
 ---
 
 # FORGE: Forensic RL Graph Environment
@@ -161,6 +166,30 @@ Two-tier agent system: LLM ReAct agent (primary) + deterministic HeuristicAgent
 
 Scores are reward means across 2 episodes per task. Heuristic scores 
 are fully reproducible offline with zero API calls.
+
+## Adversarial Self-Play (Novel Feature)
+
+FORGE includes a GAN-inspired training regime where two agents compete:
+
+- **Generator Agent** — Learns to craft misinformation claims that fool 
+  the investigator. Optimises for claims with high virality scores and 
+  low source credibility signals.
+- **Investigator Agent** — The standard RL agent that learns to detect 
+  the generator's output.
+
+This adversarial dynamic creates a co-evolutionary arms race, producing 
+increasingly sophisticated misinformation patterns and more robust 
+detection policies — without requiring manual curation of new examples.
+
+```bash
+# Run adversarial self-play training
+python scripts/run_selfplay.py --rounds 10 --difficulty 3
+```
+
+This mechanism is directly analogous to how real misinformation evolves:
+bad actors adapt their techniques to evade detection, forcing Trust & 
+Safety systems to continually improve. FORGE is one of the first RL 
+environments to model this adversarial dynamic explicitly.
 
 ## Architecture
 

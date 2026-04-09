@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from env.misinfo_env import MisInfoForensicsEnv
+from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
 from server.schemas import ResetRequest, ResetResponse, StateResponse, Observation, Action, Reward
 from server.state import EPISODE_STORE
 
@@ -106,6 +106,21 @@ async def get_state(episode_id: Optional[str] = None):
         budget_remaining=budget_remaining,
         steps_used=int(env.steps),
     )
+
+    human_readable = {
+        "claim": graph.root.text if graph and graph.root else "no claim",
+        "true_label_hidden": True,
+        "task": info.get("task_id", "unknown"),
+        "step": int(env.steps),
+        "max_steps": int(env.max_steps),
+        "evidence_coverage_pct": round(float(graph.evidence_coverage) * 100, 1) if graph else 0.0,
+        "nodes_discovered": len(graph.nodes) if graph else 0,
+        "contradictions": int(graph.contradiction_surface_area) if graph else 0,
+        "manipulation_flagged": bool(env.manipulation_flagged),
+        "verdict_submitted": record.get("verdict"),
+        "actions_available": ACTIONS,
+    }
+    info["human_readable"] = human_readable
 
     return StateResponse(
         episode_id=eid,

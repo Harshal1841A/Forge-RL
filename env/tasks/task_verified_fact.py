@@ -29,6 +29,26 @@ _VERIFIED_CLAIMS = [
         "text": "US total national debt surpassed $34 trillion in early 2024.",
         "real_domain": "treasury.gov",
     },
+    {
+        "text": "The Eiffel Tower was completed in 1889 and stands 330 meters tall including antenna.",
+        "real_domain": "tour-eiffel.fr",
+    },
+    {
+        "text": "Albert Einstein was awarded the Nobel Prize in Physics in 1921 for his discovery of the photoelectric effect.",
+        "real_domain": "nobelprize.org",
+    },
+    {
+        "text": "The human genome contains approximately 3 billion base pairs of DNA.",
+        "real_domain": "genome.gov",
+    },
+    {
+        "text": "Mount Everest is the tallest mountain on Earth at 8,849 meters above sea level.",
+        "real_domain": "nationalgeographic.com",
+    },
+    {
+        "text": "The Paris Agreement on climate change was adopted in December 2015.",
+        "real_domain": "unfccc.int",
+    },
 ]
 
 _FALSE_FACT_SCENARIOS = [

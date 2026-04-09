@@ -47,6 +47,41 @@ _FABRICATED_CLAIMS = [
         "fake_domain": "vaccinedangerexposed.net",
         "tactic": "fabricate_statistic",
     },
+    {
+        "text": "New Oxford study: Daily aspirin reduces Alzheimer's risk by 73% in over-60s.",
+        "correct_stat": "No such Oxford study. Aspirin trials show modest cardiovascular benefits only.",
+        "real_domain": "ox.ac.uk",
+        "fake_domain": "healthbreakthroughs24.com",
+        "tactic": "fabricate_statistic",
+    },
+    {
+        "text": "USDA data: Organic food reduces cancer rates by 62% compared to conventional produce.",
+        "correct_stat": "USDA has no such finding. Evidence for organic cancer risk reduction is inconclusive.",
+        "real_domain": "usda.gov",
+        "fake_domain": "organictruthsociety.net",
+        "tactic": "fabricate_statistic",
+    },
+    {
+        "text": "Harvard Medical: Screen time causes permanent IQ reduction of 8 points per hour/day in children.",
+        "correct_stat": "No Harvard study supports this magnitude. Effects are smaller and reversible.",
+        "real_domain": "harvard.edu",
+        "fake_domain": "parentingalerts.org",
+        "tactic": "fabricate_statistic",
+    },
+    {
+        "text": "FBI report: 91% of violent crimes in 2023 committed by undocumented immigrants.",
+        "correct_stat": "FBI statistics show no such breakdown. Research finds immigrants commit fewer crimes per capita.",
+        "real_domain": "fbi.gov",
+        "fake_domain": "immigrationfactsusa.com",
+        "tactic": "fabricate_statistic",
+    },
+    {
+        "text": "UNICEF: Child mortality has risen 340% since 2010 due to vaccine side effects.",
+        "correct_stat": "UNICEF data shows child mortality declined ~50% since 2000. Vaccines are credited as a major cause.",
+        "real_domain": "unicef.org",
+        "fake_domain": "vaccineinjuryregistry.net",
+        "tactic": "fabricate_statistic",
+    },
 ]
 
 _SUPPORTING_DOMAINS = [

@@ -18,7 +18,7 @@ _SATIRE_CLAIMS = [
         "authoritative_domain": "theonion.com",
     },
     {
-        "text": "Report: We Don’t Make The Laws, We Just Think Them Up And Give Them To The People Who Do.",
+        "text": "Report: We Don't Make The Laws, We Just Think Them Up And Give Them To The People Who Do.",
         "authoritative_domain": "theonion.com",
     },
     {
@@ -28,6 +28,26 @@ _SATIRE_CLAIMS = [
     {
         "text": "Scientists Discover New Way To Tell If You're In A Simulation: Just Ask Politely.",
         "authoritative_domain": "clickhole.com",
+    },
+    {
+        "text": "Area Man Confident He Could Run Country Better After Watching 20 Minutes Of Cable News.",
+        "authoritative_domain": "theonion.com",
+    },
+    {
+        "text": "CDC Recommends Placing Entire Household In Large Ziplock Bag To Prevent Spread Of Germs.",
+        "authoritative_domain": "theonion.com",
+    },
+    {
+        "text": "Scientists Warn Earth's Orbit Slightly Disrupted By Humanity's Collective Disappointment.",
+        "authoritative_domain": "theonion.com",
+    },
+    {
+        "text": "Nation's Experts Admit They Just Trying Their Best, Not Sure What They're Doing Either.",
+        "authoritative_domain": "theonion.com",
+    },
+    {
+        "text": "New Study Finds Correlation Between Eating Breakfast And Having Eaten Breakfast.",
+        "authoritative_domain": "theonion.com",
     },
 ]
 
