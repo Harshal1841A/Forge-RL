@@ -80,6 +80,28 @@ async def get_grade(episode_id: str):
         0.001, 0.999
     )), 4)
 
+    # Run programmatic task grader for additional signal
+    episode_trace = record.get("episode_trace", [])
+    task_grade = 0.001
+    if task and graph and episode_trace:
+        try:
+            task_grade = task.grade(episode_trace, graph)
+        except Exception:
+            task_grade = total  # fall back to reward-based score
+
+    grade_breakdown = {
+        "base_correctness": base_score,
+        "efficiency_bonus": efficiency_score,
+        "coverage_bonus": coverage_score,
+        "manipulation_bonus": manip_score,
+        "false_positive_penalty": fp_penalty,
+        "composite_score": total,
+        "task_grader_score": task_grade,
+        "combined_score": round(float(
+            np.clip(0.6 * total + 0.4 * task_grade, 0.001, 0.999)
+        ), 4),
+    }
+
     grade = GradeResponse(
         episode_id=episode_id,
         verdict=verdict,
@@ -91,14 +113,7 @@ async def get_grade(episode_id: str):
         steps_used=env.steps,
         efficiency_score=round(efficiency, 4),
         total_reward=round(record["total_reward"], 4),
-        grade_breakdown={
-            "base_correctness": base_score,
-            "efficiency_bonus": efficiency_score,
-            "coverage_bonus": coverage_score,
-            "manipulation_bonus": manip_score,
-            "false_positive_penalty": fp_penalty,
-            "composite_score": total,
-        },
+        grade_breakdown=grade_breakdown,
     )
 
     # Log for leaderboard

@@ -8,107 +8,174 @@ tags:
   - openenv
 ---
 
-#  FORGE: Forensic RL Graph Environment
+# FORGE: Forensic RL Graph Environment
 
-An OpenEnv-compliant Reinforcement Learning simulation for training agents to investigate misinformation graphs.
+> An OpenEnv-compliant reinforcement learning environment for training 
+> agents to investigate and classify misinformation — the way human 
+> fact-checkers actually do it.
 
-## Motivation
-Misinformation rarely exists as a simple text classification problem. Fact-checkers and Trust & Safety engineers must actively **investigate** claims by querying sources, verifying timestamps, linking entities, and detecting automated bot amplifications. FORGE provides a multi-task graph-based simulation where agents learn these exact investigative policies under rigid step constraints.
+## Why FORGE?
 
-##  Spaces
+Most misinformation benchmarks treat fact-checking as text classification.
+Real Trust & Safety engineers do something fundamentally different: they 
+**investigate**. They query source credibility, trace image origins, 
+cross-reference with authoritative databases, audit timelines, and map 
+coordinated bot amplification networks — all under time pressure.
 
-**Observation Space**: 
-A flat `np.ndarray` of length 3859.
-- `[0-3839]`: Multimodal embedding matrix holding representations for up to 10 discovered nodes simultaneously.
-- `[3840-3852]`: One-hot encoded action history bounds (how many times each tool has been executed).
-- `[3853-3858]`: Active graph scalars (`evidence_coverage`, `source_diversity`, `contradiction_count`, `manipulation_flagged`, `budget_remaining`, `steps_used_ratio`).
+FORGE simulates exactly this investigative workflow as a sequential 
+decision-making problem. An agent must choose which forensic tool to 
+apply at each step, accumulate evidence in a claim graph, and submit a 
+verdict before its step budget runs out.
 
-**Action Space**: `Discrete(13)`
-Agents select an integer index corresponding to available structural tools:
-- 0: `query_source` (Retrieve domain credibility)
-- 1: `trace_origin` (Find oldest archive instance)
-- 2: `cross_reference` (Fetch standard Wikipedia abstract constraints)
-- 3: `request_context` (LLM-synthesised structural summarization)
-- 4: `entity_link` (Confirm entity existence and classification)
-- 5: `temporal_audit` (Analyse contradictory timestamps)
-- 6: `network_cluster` (Identify coordination signals)
-- 7: `flag_manipulation` (Free action to tag intentional distortions)
-- 8-12: Verdict submission (`real`, `misinfo`, `satire`, `out_of_context`, `fabricated`)
+**Real-world value:** An agent trained on FORGE could be deployed as an 
+automated first-pass content moderation system, triaging claims for human 
+review at the speed of social media spread.
 
-##  Tasks
-FORGE dynamically routes across eight distinct domain tasks ranging from structured procedural topologies to real-world datasets:
+## Environment Design
 
-1. **`fabricated_stats`** (Easy): A structurally sound claim is injected with a purely fabricated integer or percentage. Resolution usually requires `entity_link` + `cross_reference`.
-2. **`out_of_context`** (Medium): A real quote or image is stripped of its date and re-anchored. Resolution requires `trace_origin` + `temporal_audit`.
-3. **`coordinated_campaign`** (Hard): A network-distributed attack masking source credibility. Resolution rigorously demands `network_cluster` analysis.
-4. **`politifact_liar`** (Real-World): Sources historical claims directly from the open-source LIAR dataset (Wang, 2017). Agent must fact-check real political assertions against expert grounding.
-5. **`image_forensics`** (Multimodal Simulation): Tracks diffusion signatures and ELA artifacts for deepfake detection versus generic miscontextualization. 
-6. **`sec_fraud`** (Financial): Enforces regulatory forensic checks bounding corporate public relations announcements against SEC EDGAR 10-K and 8-K filings.
-7. **`verified_fact`** (Control): Legitimate verified factual claims that test the agent's ability to correctly identify real information and avoid false positives.
-8. **`satire_news`** (Linguistic): Satirical articles misinterpreted as genuine news. Requires nuanced linguistic analysis to distinguish humour from misinformation.
+**Observation Space** — `Box(3859,)` float32:
+- `[0:3840]` — 384-dim sentence embeddings for up to 10 discovered graph nodes
+- `[3840:3853]` — Tool call history (how many times each of 13 actions was used)
+- `[3853:3859]` — Graph scalars: `evidence_coverage`, `source_diversity`, 
+  `contradiction_count`, `manipulation_flagged`, `budget_remaining`, `steps_used_ratio`
 
-## Setup & Execution
+**Action Space** — `Discrete(13)`:
 
-**1. Setup the Environment**
+| Index | Action | Description |
+|---|---|---|
+| 0 | `query_source` | Retrieve domain credibility score |
+| 1 | `trace_origin` | Find oldest archival instance |
+| 2 | `cross_reference` | Check against Wikipedia/encyclopedic sources |
+| 3 | `request_context` | LLM-synthesised structural summary |
+| 4 | `entity_link` | Verify entity existence and classification |
+| 5 | `temporal_audit` | Analyse timestamp anomalies and EXIF data |
+| 6 | `network_cluster` | Detect coordinated bot amplification |
+| 7 | `flag_manipulation` | Free action: tag deliberate adversarial intent |
+| 8–12 | `submit_verdict_*` | Submit final verdict (real/misinfo/satire/out_of_context/fabricated) |
+
+**Reward Function** — Potential-based dense shaping (Ng et al., 1999):
+- Terminal reward: correctness + calibration bonus + efficiency bonus + manipulation component
+- Step reward: `Φ(s') − Φ(s)` where `Φ = coverage + diversity + contradiction_area + network_diameter`
+- All rewards clipped to open interval `(0.001, 0.999)` per OpenEnv spec
+
+## Tasks
+
+| # | Task | Difficulty | Domain | Key Tools | Grader |
+|---|---|---|---|---|---|
+| 1 | `fabricated_stats` | Easy | Health/Science | entity_link, cross_reference | ✅ |
+| 2 | `verified_fact` | Easy | Control/Negative | cross_reference, entity_link | ✅ |
+| 3 | `out_of_context` | Medium | Media | trace_origin, temporal_audit | ✅ |
+| 4 | `politifact_liar` | Medium | Politics (LIAR dataset) | cross_reference, entity_link | ✅ |
+| 5 | `satire_news` | Medium | Linguistics | request_context, cross_reference | ✅ |
+| 6 | `coordinated_campaign` | Hard | Social Networks | network_cluster, query_source | ✅ |
+| 7 | `image_forensics` | Hard | Multimodal | temporal_audit, trace_origin | ✅ |
+| 8 | `sec_fraud` | Hard | Financial/SEC | cross_reference, entity_link | ✅ |
+
+Each grader awards partial credit for correct tool usage independently 
+of verdict correctness, providing dense signal across the full trajectory.
+
+## Setup
+
+**Prerequisites:** Python 3.11+, Docker
+
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/Harshal1841A/Forge-RL.git
 cd Forge-RL
 
-# Set up environment variables
-cp .env.example .env
-
 # Install dependencies
 pip install -r requirements.txt
+
+# (Optional) Copy environment config
+cp .env.example .env
 ```
 
-**2. Baseline Evaluation**
-The inference script iteratively spawns the ReAct++ local LLMAgent against 2 episodes of every primary task to compute the reproducible leaderboard stats.
+## Running Inference
+
 ```bash
-python inference.py
+# Offline — no API key needed (uses deterministic HeuristicAgent)
+python inference.py --episodes 2
+
+# With LLM agent (Groq free tier)
+HF_TOKEN=your_groq_key python inference.py --episodes 2
+
+# Full evaluation
+python inference.py --episodes 5 --difficulty 2
 ```
 
+## Docker
 
-### Codebase Hardening 
-- System rigorously hardened to resolve infinite loops, graph-state inconsistencies, truncation issues, GATPolicy architecture mismatches, edge-case dangling variables, memory leaks in Tool registries, and missing budget multipliers.
-- **Recent Updates**: Implemented OpenEnv compliancy standards to ensure full testability. Upgraded FORGE Web UI with dynamic UI rendering, status animations, and interactive elements. Refined the Heuristic agent fallback mechanism for 100% stability. System tested and hardened for continuous OpenEnv validation and stable deployment.
-
-**3. OpenEnv Validation**
-To ensure the submission is ready for multi-mode deployment, run the following:
 ```bash
-uv lock
+# Build
+docker build -t forge-rl .
+
+# Run server
+docker run -p 7860:7860 \
+  -e HF_TOKEN=your_key \
+  -e MODEL_NAME=llama3-8b-8192 \
+  forge-rl
+
+# Verify
+curl http://localhost:7860/health
+curl -X POST http://localhost:7860/reset \
+  -H "Content-Type: application/json" \
+  -d '{"task_name": "fabricated_stats", "difficulty": 1}'
+```
+
+## OpenEnv Validation
+
+```bash
+pip install openenv-core
 openenv validate
 ```
 
-##  Baseline Scores
+## API Reference
 
-FORGE uses a **two-tier agent system**:
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/reset` | Start new episode |
+| POST | `/step` | Take action |
+| GET | `/state` | Current episode state |
+| GET | `/tasks` | List all tasks |
+| GET | `/health` | Server health + OpenEnv compliance |
+| GET | `/observations/schema` | Typed observation schema |
+| GET | `/actions/schema` | Typed action schema |
+| GET | `/rewards/schema` | Typed reward schema |
 
-1. **LLM ReAct Agent** — Primary agent using OpenAI-compatible API (Groq free tier). Performs chain-of-thought reasoning to choose optimal investigation tools.
-2. **Heuristic Fallback** — Deterministic rule-based agent. Activates automatically when the LLM API is rate-limited or unavailable. No API key required.
+## Baseline Scores
 
-> **Offline mode**: When no API key is set, FORGE automatically activates the deterministic HeuristicAgent. 
-> All 8 tasks run fully offline with zero external dependencies. Set `HF_TOKEN` or `OPENAI_API_KEY` to 
-> enable the LLM ReAct agent for higher accuracy.
+Two-tier agent system: LLM ReAct agent (primary) + deterministic HeuristicAgent 
+(fallback when API unavailable — no key required).
 
-## Baseline scores
-
-| Task | Difficulty | Heuristic (offline) | LLM ReAct (with key) |
+| Task | Difficulty | Heuristic | LLM ReAct |
 |---|---|---|---|
-| fabricated_stats | Easy | ~35% | ~70% |
-| out_of_context | Medium | ~30% | ~65% |
-| coordinated_campaign | Hard | ~40% | ~85% |
-| politifact_liar | Medium | ~25% | ~60% |
-| image_forensics | Hard | ~20% | ~75% |
-| sec_fraud | Hard | ~25% | ~68% |
-| verified_fact | Easy | ~45% | ~80% |
-| satire_news | Medium | ~30% | ~65% |
+| `fabricated_stats` | Easy | ~35% | ~70% |
+| `verified_fact` | Easy | ~45% | ~80% |
+| `out_of_context` | Medium | ~30% | ~65% |
+| `politifact_liar` | Medium | ~25% | ~60% |
+| `satire_news` | Medium | ~30% | ~65% |
+| `coordinated_campaign` | Hard | ~40% | ~85% |
+| `image_forensics` | Hard | ~20% | ~75% |
+| `sec_fraud` | Hard | ~25% | ~68% |
 | **Overall** | | **~31%** | **~71%** |
 
-Run offline (no API key needed):
-  python inference.py --episodes 2
+Scores are reward means across 2 episodes per task. Heuristic scores 
+are fully reproducible offline with zero API calls.
 
-Run with LLM:
-  HF_TOKEN=your_key python inference.py --episodes 2
+## Architecture
 
-> **Architecture:** The primary agent is a pure ReAct LLM investigator backed by `tenacity` exponential backoff to handle free-tier rate limits gracefully. A deterministic heuristic fallback engages automatically when the LLM is unavailable, preventing timeouts in grading pipelines. A persistent SQLite caching layer wraps all external HTTP tool calls, ensuring `INTERNET_OFF=true` runs are fully deterministic without API quota failures.
+```
+FORGE
+├── env/
+│   ├── misinfo_env.py      # Gymnasium-compatible environment
+│   ├── claim_graph.py      # Graph data structure for evidence
+│   ├── reward.py           # Potential-based reward shaping
+│   └── tasks/              # 8 task generators + graders
+├── agents/
+│   ├── llm_agent.py        # ReAct LLM agent (FSM-constrained)
+│   ├── heuristic_agent.py  # Deterministic fallback
+│   └── ppo_agent.py        # PPO training agent
+├── tools/                  # Simulated forensic tool implementations
+├── server/                 # FastAPI OpenEnv server
+└── inference.py            # OpenEnv evaluation script
+```

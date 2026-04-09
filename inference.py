@@ -69,10 +69,12 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
 
     tasks = list(TASK_REGISTRY.keys())
     
-    for task_idx, task_name in enumerate(tasks):
-        env = MisInfoForensicsEnv(task_names=[task_name], difficulty=difficulty)
+    EPISODE_TIMEOUT_SECONDS = 120
 
+    for task_idx, task_name in enumerate(tasks):
         for ep in range(n_episodes_per_task):
+            env = MisInfoForensicsEnv(task_names=[task_name], difficulty=difficulty)
+
             ep_absolute = (task_idx * n_episodes_per_task) + ep + 1
             if hasattr(agent, "reset"):
                 agent.reset()
@@ -91,7 +93,6 @@ def run_evaluation(n_episodes_per_task: int = 2, difficulty: int = 1):
                 done = False
 
                 import time
-                EPISODE_TIMEOUT_SECONDS = 120  # 2 min per episode max
                 episode_start = time.time()
 
                 step_info: dict = {}

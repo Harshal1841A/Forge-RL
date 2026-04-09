@@ -384,3 +384,33 @@ class MisInfoForensicsEnv(gym.Env):
             "contradictions_found": self.graph.contradiction_surface_area,
             "manipulation_flagged": self.manipulation_flagged,
         }
+
+    @staticmethod
+    def parse_observation(obs: np.ndarray) -> dict:
+        """
+        Parse a flat observation vector back into a named dictionary.
+
+        This is the ONLY sanctioned way to read observation fields.
+        Consumers MUST NOT manually compute index offsets.
+
+        Returns dict with keys:
+          - tool_history: np.ndarray of per-action call counts
+          - evidence_coverage: float 0-1
+          - source_diversity: float 0-1 (normalised)
+          - contradiction_norm: float 0-1 (normalised)
+          - manipulation_flagged: bool
+          - budget_remaining: float 0-1
+          - step_ratio: float 0-1
+        """
+        embed_dim = config.MAX_OBSERVATION_NODES * config.CLAIM_EMBED_DIM
+        tool_history = obs[embed_dim: embed_dim + N_ACTIONS]
+        scalar_start = embed_dim + N_ACTIONS
+        return {
+            "tool_history": tool_history,
+            "evidence_coverage": float(obs[scalar_start]),
+            "source_diversity": float(obs[scalar_start + 1]),
+            "contradiction_norm": float(obs[scalar_start + 2]),
+            "manipulation_flagged": bool(obs[scalar_start + 3] > 0.5),
+            "budget_remaining": float(obs[scalar_start + 4]),
+            "step_ratio": float(obs[scalar_start + 5]),
+        }

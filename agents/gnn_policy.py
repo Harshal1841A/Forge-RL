@@ -16,7 +16,6 @@ from typing import Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from env.misinfo_env import N_ACTIONS
 import config
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Try to import torch_geometric, fall back to MLP gracefully ──────────────
 try:
-    from torch_geometric.nn import GATConv, global_mean_pool
+    from torch_geometric.nn import GATConv, global_mean_pool  # type: ignore
     HAS_PYGEOMETRIC = True
 except ImportError:
     HAS_PYGEOMETRIC = False
@@ -132,6 +131,7 @@ class GATPolicy(nn.Module):
         edge_index: torch.Tensor,       # [2, E]
         batch: torch.Tensor,            # [N] — batch assignments
     ) -> torch.Tensor:
+        import torch.nn.functional as F
         x = node_features
         for gat in self.gat_layers[:-1]:
             x = F.elu(gat(x, edge_index))

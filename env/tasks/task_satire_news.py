@@ -116,6 +116,10 @@ class SatiricalClaimTask(BaseTask):
         ))
 
         # —— Additional angry amplifiers (if difficulty > 1)
+        # DEPTH SCALING: chain amplifiers through each other (A→B→C) instead of
+        # all connecting directly to root.  This forces the agent to perform
+        # multi-hop investigation before it can reach the debunking evidence.
+        prev_chain_id = root_id
         for i in range(difficulty - 1):
             amp_domain = rng.choice(_MISUNDERSTANDING_DOMAINS)
             amp_id = f"node_amp_{i}"
@@ -130,8 +134,32 @@ class SatiricalClaimTask(BaseTask):
             )
             graph.add_node(amp)
             graph.add_edge(EvidenceEdge(
-                edge_id=f"e_amp_{i}", src_id=root_id, tgt_id=amp_id,
+                edge_id=f"e_amp_{i}", src_id=prev_chain_id, tgt_id=amp_id,
                 relation="agrees", weight=0.85,
+            ))
+            prev_chain_id = amp_id
+
+        # —— Hidden debunk node at chain depth (difficulty >= 3)
+        # Only reachable by traversing the full amplifier chain.
+        if difficulty >= 3 and not is_true:
+            hidden_deb_id = "node_hidden_debunk"
+            hidden_deb = ClaimNode(
+                node_id=hidden_deb_id,
+                text=(
+                    f"Deep investigation: Original article traced to "
+                    f"{template['authoritative_domain']} satire section. "
+                    f"Confirmed parody by editor."
+                ),
+                source_url=f"https://{template['authoritative_domain']}/about/satire-policy",
+                domain=template["authoritative_domain"],
+                timestamp=datetime.utcnow() - timedelta(days=rng.randint(30, 90)),
+                virality_score=0.02,
+                trust_score=0.95,
+            )
+            graph.add_node(hidden_deb)
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_hidden_deb", src_id=prev_chain_id, tgt_id=hidden_deb_id,
+                relation="debunks", weight=0.97,
             ))
 
         return graph
@@ -141,3 +169,33 @@ class SatiricalClaimTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "satire"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Medium linguistic analysis grader.
+        Partial credit:
+          +0.3  used request_context (reads deeper text for tone/humor)
+          +0.3  used cross_reference (checks if claim appears in real news)
+          +0.4  submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "request_context" in actions:
+            score += 0.3
+        if "cross_reference" in actions:
+            score += 0.3
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+
+        return float(np.clip(score, 0.001, 0.999))

@@ -12,8 +12,20 @@ from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
 from agents.llm_agent import LLMAgent
 from env.tasks import TASK_REGISTRY
 
-logging.getLogger("env").setLevel(logging.CRITICAL)
-logging.getLogger("agents").setLevel(logging.CRITICAL)
+# ─── Debug logging: write to file for traceability, keep stdout clean ─────────
+_debug_handler = logging.FileHandler("forge_debug.log", mode="a", encoding="utf-8")
+_debug_handler.setLevel(logging.DEBUG)
+_debug_handler.setFormatter(logging.Formatter("[%(levelname)s] %(asctime)s %(name)s: %(message)s"))
+logging.getLogger("env").addHandler(_debug_handler)
+logging.getLogger("env").setLevel(logging.DEBUG)
+logging.getLogger("env").propagate = False  # don't leak to stdout
+logging.getLogger("agents").addHandler(_debug_handler)
+logging.getLogger("agents").setLevel(logging.DEBUG)
+logging.getLogger("agents").propagate = False
+_app_logger = logging.getLogger("forge.app")
+_app_logger.addHandler(_debug_handler)
+_app_logger.setLevel(logging.DEBUG)
+_app_logger.propagate = False
 
 # ─── Task metadata ────────────────────────────────────────────────────────────
 TASK_META = {
@@ -448,8 +460,8 @@ def _right_panel_active(think, predict, fsm_state, step_num, coverage, contras):
     """
 
 def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
-    badge_bg = "rgba(16, 185, 129, 0.1)" if correct else "rgba(2ef, 68, 68, 0.1)"
-    badge_border = "rgba(16, 185, 129, 0.4)" if correct else "rgba(2ef, 68, 68, 0.4)"
+    badge_bg = "rgba(16, 185, 129, 0.1)" if correct else "rgba(239, 68, 68, 0.1)"
+    badge_border = "rgba(16, 185, 129, 0.4)" if correct else "rgba(239, 68, 68, 0.4)"
     badge_color = "#34d399" if correct else "#fca5a5"
     badge_text = "VERIFIED REAL" if correct else "MISINFO FLAGGED"
     icon = "✅" if correct else "🚨"
@@ -487,7 +499,10 @@ def investigate(task_name, difficulty):
         yield from _investigate_inner(task_name, int(difficulty))
     except Exception as exc:
         import traceback
-        err = f"[ERR] {exc}\n{traceback.format_exc()[-600:]}"
+        # Log the full traceback server-side for debugging
+        _app_logger.error("Investigation failed: %s\n%s", exc, traceback.format_exc())
+        # Sanitized error panel — NO raw tracebacks in the frontend
+        error_type = type(exc).__name__
         err_panel = f"""
         <div id="center-panel">
             <div style="
@@ -496,7 +511,11 @@ def investigate(task_name, difficulty):
                 font-size:11px; color:#ff2d6b; max-width:480px;
             ">
                 <div style="letter-spacing:0.15em; margin-bottom:8px;">SYSTEM_ERROR</div>
-                <pre style="white-space:pre-wrap; color:#94a3b8;">{err}</pre>
+                <div style="color:#94a3b8; font-size:12px; margin-top:8px;">
+                    Error type: <b>{error_type}</b><br>
+                    The investigation encountered an unexpected error.<br>
+                    Details have been logged to <code>forge_debug.log</code>.
+                </div>
             </div>
         </div>"""
         yield (_left_panel_idle(), err_panel, _right_panel_idle(),
@@ -539,8 +558,15 @@ def _investigate_inner(task_name, difficulty):
     done = False
     step_info = {}
     final_reward = 0.0
+    INVESTIGATION_TIMEOUT = 180  # 3 minute hard ceiling for the entire investigation
 
     while not done:
+        # ── Timeout guard: prevent infinite hangs from stuck API calls ─────
+        if time.time() - start_time > INVESTIGATION_TIMEOUT:
+            _app_logger.warning("Investigation timed out after %ds", INVESTIGATION_TIMEOUT)
+            log_entries.append((_ts(), '⏱️ <b style="color:#fca5a5;">Investigation Timeout</b>'))
+            break
+
         context = {
             "steps": env.steps,
             "max_steps": env.max_steps,

@@ -193,7 +193,11 @@ class PolitifactTask(BaseTask):
             relation=edge_relation, weight=0.95,
         ))
 
-        # ── Difficulty scaling: add extra noisy/amplifier nodes ───────────────
+        # ── Difficulty scaling: chained noisy/amplifier nodes ────────────────
+        # DEPTH SCALING: chain noise nodes (root→noise_0→noise_1) so the agent
+        # must traverse multiple hops.  At difficulty >= 3, a hidden original-
+        # source node is only reachable at the end of the chain.
+        prev_chain_id = root_id
         for i in range(difficulty - 1):
             noise_id = f"node_noise_{i}"
             noise = ClaimNode(
@@ -207,8 +211,32 @@ class PolitifactTask(BaseTask):
             )
             graph.add_node(noise)
             graph.add_edge(EvidenceEdge(
-                edge_id=f"e_noise_{i}", src_id=noise_id, tgt_id=root_id,
+                edge_id=f"e_noise_{i}", src_id=prev_chain_id, tgt_id=noise_id,
                 relation="cites", weight=rng.uniform(0.2, 0.5),
+            ))
+            prev_chain_id = noise_id
+
+        # ── Hidden original-source node at chain depth (difficulty >= 3) ──────
+        if difficulty >= 3:
+            orig_src_id = "node_original_source"
+            orig_src = ClaimNode(
+                node_id=orig_src_id,
+                text=(
+                    f"Original speech transcript from {speaker}: full context reveals "
+                    f"the statement was {'accurately reported' if forge_label == 'real' else 'taken out of context and distorted'} "
+                    f"by downstream media."
+                ),
+                source_url=f"https://c-span.org/transcript/{seed}",
+                domain="c-span.org",
+                timestamp=datetime.utcnow() - timedelta(days=rng.randint(30, 120)),
+                virality_score=0.01,
+                trust_score=0.98,
+            )
+            graph.add_node(orig_src)
+            edge_rel_orig = "supports" if forge_label == "real" else "debunks"
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_orig_src", src_id=prev_chain_id, tgt_id=orig_src_id,
+                relation=edge_rel_orig, weight=0.95,
             ))
 
         return graph
@@ -218,7 +246,42 @@ class PolitifactTask(BaseTask):
         return 2 + graph.difficulty
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
-        return graph.true_label in ("fabricated", "misinfo")
+        return graph.true_label in ["misinfo", "fabricated"]
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Real-world dataset grader (LIAR dataset).
+        Partial credit:
+          +0.25  used cross_reference (checks against encyclopedic facts)
+          +0.25  used entity_link (verifies claim entities exist)
+          +0.1   used query_source (verifies source credibility)
+          +0.4   submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "cross_reference" in actions:
+            score += 0.25
+        if "entity_link" in actions:
+            score += 0.25
+        if "query_source" in actions:
+            score += 0.1
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+            elif final_verdict == "real" and graph.true_label == "real":
+                score += 0.4
+
+        return float(np.clip(score, 0.001, 0.999))
 
     @staticmethod
     def _infer_tactics(liar_label: str) -> list:

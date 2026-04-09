@@ -163,7 +163,11 @@ class FabricatedStatsTask(BaseTask):
                 relation="debunks", weight=0.95,
             ))
 
-        # ── Difficulty scaling: add noisy amplifier nodes ──────────────────────
+        # ── Difficulty scaling: chained amplifier nodes ──────────────────────
+        # DEPTH SCALING: chain amp nodes through each other (root→amp_0→amp_1)
+        # instead of all connecting directly to root.  At difficulty >= 3,
+        # a hidden retraction node is only reachable at the end of the chain.
+        prev_chain_id = root_id
         for i in range(difficulty - 1):
             amp_domain = rng.choice(_SUPPORTING_DOMAINS[::-1])  # reputable but misquoted
             amp_id = f"node_amp_{i}"
@@ -178,8 +182,31 @@ class FabricatedStatsTask(BaseTask):
             )
             graph.add_node(amp)
             graph.add_edge(EvidenceEdge(
-                edge_id=f"e_amp_{i}", src_id=root_id, tgt_id=amp_id,
+                edge_id=f"e_amp_{i}", src_id=prev_chain_id, tgt_id=amp_id,
                 relation="cites", weight=rng.uniform(0.3, 0.6),
+            ))
+            prev_chain_id = amp_id
+
+        # ── Hidden retraction node at chain depth (difficulty >= 3) ───────────
+        if not is_true and difficulty >= 3:
+            retraction_id = "node_retraction"
+            retraction = ClaimNode(
+                node_id=retraction_id,
+                text=(
+                    f"RETRACTION NOTICE: The original author of the misquoted study "
+                    f"has issued a formal correction stating their data was cherry-picked "
+                    f"and misrepresented by secondary sources."
+                ),
+                source_url=f"https://{template['real_domain']}/retractions/notice-{rng.randint(100,999)}",
+                domain=template["real_domain"],
+                timestamp=datetime.utcnow() - timedelta(days=rng.randint(5, 30)),
+                virality_score=0.03,
+                trust_score=0.97,
+            )
+            graph.add_node(retraction)
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_retraction", src_id=prev_chain_id, tgt_id=retraction_id,
+                relation="debunks", weight=0.96,
             ))
 
         if not is_true:

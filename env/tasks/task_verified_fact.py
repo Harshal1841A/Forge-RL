@@ -133,7 +133,11 @@ class VerifiedFactTask(BaseTask):
             relation=edge_rel, weight=0.95,
         ))
 
-        # —— Additional corroborating nodes
+        # —— Chained corroborating/analysis nodes
+        # DEPTH SCALING: chain nodes through each other (root→amp_0→amp_1)
+        # instead of all connecting to root.  At difficulty >= 3, a hidden
+        # primary-source node is only reachable at the end of the chain.
+        prev_chain_id = root_id
         for i in range(max(1, difficulty)):
             amp_domain = rng.choice(_SUPPORTING_DOMAINS)
             amp_id = f"node_amp_{i}"
@@ -158,8 +162,40 @@ class VerifiedFactTask(BaseTask):
             )
             graph.add_node(amp)
             graph.add_edge(EvidenceEdge(
-                edge_id=f"e_amp_{i}", src_id=amp_id, tgt_id=root_id,
+                edge_id=f"e_amp_{i}", src_id=prev_chain_id, tgt_id=amp_id,
                 relation=amp_rel, weight=0.9,
+            ))
+            prev_chain_id = amp_id
+
+        # —— Hidden primary-source node at chain depth (difficulty >= 3) ───────
+        if difficulty >= 3:
+            primary_id = "node_primary_source"
+            if is_true:
+                primary_text = (
+                    f"Original dataset from {template['real_domain']}: raw data confirms "
+                    f"the reported figures. Methodology peer-reviewed and reproducible."
+                )
+                primary_rel = "supports"
+            else:
+                primary_text = (
+                    f"Original dataset from {template['real_domain']}: raw data directly "
+                    f"contradicts the viral claim. Numbers were fabricated or misread."
+                )
+                primary_rel = "debunks"
+
+            primary = ClaimNode(
+                node_id=primary_id,
+                text=primary_text,
+                source_url=f"https://{template['real_domain']}/data/raw-dataset-{rng.randint(100,999)}",
+                domain=template["real_domain"],
+                timestamp=datetime.utcnow() - timedelta(days=rng.randint(60, 180)),
+                virality_score=0.01,
+                trust_score=0.99,
+            )
+            graph.add_node(primary)
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_primary", src_id=prev_chain_id, tgt_id=primary_id,
+                relation=primary_rel, weight=0.98,
             ))
 
         return graph
@@ -169,3 +205,38 @@ class VerifiedFactTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "fabricated"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Easy control task grader. Tests false-positive avoidance.
+        Partial credit:
+          +0.3  used cross_reference (confirms claim is real)
+          +0.3  used entity_link (verifies entities exist)
+          +0.4  submitted correct final verdict
+        Penalty:
+          -0.2  used flag_manipulation on a real claim (false positive)
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "cross_reference" in actions:
+            score += 0.3
+        if "entity_link" in actions:
+            score += 0.3
+
+        # False positive penalty: flagging manipulation on a verified real claim
+        if "flag_manipulation" in actions and graph.true_label == "real":
+            score -= 0.2
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None and final_verdict != "real":
+            # Penalise false positives (mislabelling real as misinfo)
+            score -= 0.1
+
+        return float(np.clip(score, 0.001, 0.999))

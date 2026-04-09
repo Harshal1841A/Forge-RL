@@ -32,6 +32,15 @@ async def take_step(req: StepRequest):
     if info.get("verdict"):
         record["verdict"] = info["verdict"]
 
+    # Append to episode trace for task grader
+    from env.misinfo_env import ACTIONS
+    record.setdefault("episode_trace", []).append({
+        "step": env.steps,
+        "action": ACTIONS[req.action],
+        "reward": reward,
+        "done": done,
+    })
+
     return StepResponse(
         observation=obs.tolist(),
         reward=round(float(reward), 5),

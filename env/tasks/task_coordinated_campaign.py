@@ -209,3 +209,36 @@ class CoordinatedCampaignTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "misinfo"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Hard task grader.
+        Partial credit:
+          +0.3  used network_cluster (essential for bot detection)
+          +0.2  used query_source (checks domain credibility)
+          +0.1  used flag_manipulation (if claim is misinfo)
+          +0.4  submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "network_cluster" in actions:
+            score += 0.3
+        if "query_source" in actions:
+            score += 0.2
+        if "flag_manipulation" in actions and graph.true_label == "misinfo":
+            score += 0.1
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+
+        return float(np.clip(score, 0.001, 0.999))

@@ -9,11 +9,15 @@ Decision logic:
   5. If network signals suspicious → network_cluster (6)
   6. flag_manipulation (7) if enough evidence
   7. submit_verdict based on contradiction count
+
+NOTE: Observation parsing uses MisInfoForensicsEnv.parse_observation()
+      to avoid hardcoded index slicing. If the observation layout changes,
+      only parse_observation() needs updating — not this agent.
 """
 
 from __future__ import annotations
 import numpy as np
-from env.misinfo_env import N_ACTIONS
+from env.misinfo_env import N_ACTIONS, MisInfoForensicsEnv
 
 
 class HeuristicAgent:
@@ -29,25 +33,21 @@ class HeuristicAgent:
 
     def act(self, obs: np.ndarray, info: dict = None, **kwargs) -> int:
         """
-        obs layout (positional):
-          [0:384]   claim embedding (ignored — heuristic uses indices only)
-          [384:397] tool call history counts (one per action)
-          [397]     evidence_coverage
-          [398]     source_diversity (normalised)
-          [399]     contradiction_surface_area (normalised)
-          [400]     manipulation_flagged
-          [401]     budget_remaining
-          [402]     step_ratio
+        Select the next action based on structured observation fields.
+
+        Uses MisInfoForensicsEnv.parse_observation() so that changes to the
+        observation layout (embed dim, N_ACTIONS, scalar order) are handled
+        in one place rather than requiring manual index arithmetic here.
         """
         from env.misinfo_env import ACTIONS
-        import config
-        embed_dim = config.MAX_OBSERVATION_NODES * config.CLAIM_EMBED_DIM
-        hist = obs[embed_dim: embed_dim + N_ACTIONS]      # tool history
-        coverage = float(obs[embed_dim + N_ACTIONS])
-        _ = float(obs[embed_dim + N_ACTIONS + 1])
-        contra_norm = float(obs[embed_dim + N_ACTIONS + 2])
-        flagged = bool(obs[embed_dim + N_ACTIONS + 3] > 0.5)
-        budget = float(obs[embed_dim + N_ACTIONS + 4])  # remaining fraction
+
+        # ── Parse observation through the stable API ──────────────────────────
+        parsed = MisInfoForensicsEnv.parse_observation(obs)
+        hist = parsed["tool_history"]
+        coverage = parsed["evidence_coverage"]
+        contra_norm = parsed["contradiction_norm"]
+        flagged = parsed["manipulation_flagged"]
+        budget = parsed["budget_remaining"]
 
         def used(action_name: str) -> bool:
             idx = ACTIONS.index(action_name)

@@ -28,6 +28,10 @@
 /generator_agent.py
 /run_selfplay.py
 /download_liar.py
+/tasks/
+/routes/
+/utils/
+/adversarial/
 
 # ── Secrets (NEVER commit) ─────────────────────────────────────
 .env
@@ -49,6 +53,7 @@ build/
 *.sqlite
 *.sqlite3
 forge.db
+forge_cache.db
 
 # ── Model checkpoints ───────────────────────────────────────────
 checkpoints/

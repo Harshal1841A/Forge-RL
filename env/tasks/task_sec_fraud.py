@@ -231,10 +231,53 @@ class SECFraudTask(BaseTask):
                 relation="debunks", weight=0.92,
             ))
 
-        if difficulty >= 3:
+        # ── Difficulty >= 3: chained insider investigation path ─────────────
+        # DEPTH SCALING: add an insider analyst node chained to the regulator
+        # (or to root if no regulator). This forces multi-hop traversal.
+        if not is_true and difficulty >= 3:
+            chain_parent = reg_id if difficulty >= 2 else root_id
+            insider_id = "node_insider_analyst"
+            insider = ClaimNode(
+                node_id=insider_id,
+                text=(
+                    f"Former {scenario['company']} analyst corroborates filing discrepancy. "
+                    f"Internal spreadsheets show numbers were altered before press release."
+                ),
+                source_url=f"https://whistleblower-network.org/case/{scenario['ticker']}-{seed}",
+                domain="whistleblower-network.org",
+                timestamp=datetime.utcnow() - timedelta(days=rng.randint(3, 20)),
+                virality_score=0.08,
+                trust_score=0.75,
+            )
+            graph.add_node(insider)
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_insider", src_id=chain_parent, tgt_id=insider_id,
+                relation="debunks", weight=0.88,
+            ))
             graph.applied_tactics.append("cherry_pick_study")
-        if difficulty >= 4:
-            graph.applied_tactics.append("backdate_article")
+
+            # ── Difficulty >= 4: hidden affidavit at chain depth ──────────────
+            if difficulty >= 4:
+                affidavit_id = "node_affidavit"
+                affidavit = ClaimNode(
+                    node_id=affidavit_id,
+                    text=(
+                        f"Sealed court filing: sworn affidavit from {scenario['company']} CFO "
+                        f"confirms CEO was aware of {scenario['filing_type']} discrepancy "
+                        f"before public statement. Material misrepresentation established."
+                    ),
+                    source_url=f"https://courtlistener.com/docket/{scenario['ticker']}/{seed}",
+                    domain="courtlistener.com",
+                    timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 10)),
+                    virality_score=0.02,
+                    trust_score=0.96,
+                )
+                graph.add_node(affidavit)
+                graph.add_edge(EvidenceEdge(
+                    edge_id="e_affidavit", src_id=insider_id, tgt_id=affidavit_id,
+                    relation="debunks", weight=0.99,
+                ))
+                graph.applied_tactics.append("backdate_article")
 
         return graph
 
@@ -243,3 +286,36 @@ class SECFraudTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "fabricated"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Hard financial forensics grader.
+        Partial credit:
+          +0.3  used cross_reference (checks against SEC filings)
+          +0.2  used entity_link (verifies company/executive existence)
+          +0.1  used query_source (checks domain — .sec.gov vs fake domain)
+          +0.4  submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "cross_reference" in actions:
+            score += 0.3
+        if "entity_link" in actions:
+            score += 0.2
+        if "query_source" in actions:
+            score += 0.1
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+
+        return float(np.clip(score, 0.001, 0.999))

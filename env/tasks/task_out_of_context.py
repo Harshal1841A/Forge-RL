@@ -166,3 +166,34 @@ class OutOfContextTask(BaseTask):
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
         return graph.true_label == "out_of_context"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Medium task grader.
+        Partial credit:
+          +0.3  used trace_origin (checks timestamp of original)
+          +0.3  used temporal_audit (verifies timeline anomaly)
+          +0.4  submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "trace_origin" in actions:
+            score += 0.3
+        if "temporal_audit" in actions:
+            score += 0.3
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            # partial credit: correct macro-category
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+
+        return float(np.clip(score, 0.001, 0.999))

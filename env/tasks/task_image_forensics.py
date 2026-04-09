@@ -216,7 +216,12 @@ class ImageForensicsTask(BaseTask):
             relation=deb_rel, weight=0.95,
         ))
 
-        # ── Difficulty: add bot amplification nodes ───────────────────────────
+        # ── Difficulty: chained bot amplification nodes ─────────────────────────
+        # DEPTH SCALING: bot accounts form a chain (bot_0→bot_1→bot_2) instead of
+        # all connecting directly to root.  At difficulty >= 3, a hidden
+        # whistleblower node with forensic metadata is only reachable by
+        # traversing the full chain.
+        prev_chain_id = root_id
         for i in range(difficulty - 1):
             bot_id = f"node_bot_{i}"
             bot = ClaimNode(
@@ -231,8 +236,32 @@ class ImageForensicsTask(BaseTask):
             )
             graph.add_node(bot)
             graph.add_edge(EvidenceEdge(
-                edge_id=f"e_bot_{i}", src_id=bot_id, tgt_id=root_id,
+                edge_id=f"e_bot_{i}", src_id=prev_chain_id, tgt_id=bot_id,
                 relation="amplifies", weight=rng.uniform(0.6, 0.9),
+            ))
+            prev_chain_id = bot_id
+
+        # ── Hidden forensic whistleblower at chain depth (difficulty >= 3) ────
+        if difficulty >= 3 and not is_true:
+            whistleblower_id = "node_whistleblower"
+            whistleblower = ClaimNode(
+                node_id=whistleblower_id,
+                text=(
+                    f"Whistleblower metadata leak: image EXIF reconstruction reveals "
+                    f"Stable Diffusion v2.1 model hash in PNG metadata chunk. "
+                    f"Original prompt recovered from C2PA watermark."
+                ),
+                source_url="https://forensicarchive.org/exif-reconstruction/report",
+                domain="forensicarchive.org",
+                timestamp=datetime.utcnow() - timedelta(hours=rng.randint(2, 24)),
+                virality_score=0.01,
+                trust_score=0.92,
+                metadata={"forensics_type": "metadata_reconstruction", "definitive": True},
+            )
+            graph.add_node(whistleblower)
+            graph.add_edge(EvidenceEdge(
+                edge_id="e_whistleblower", src_id=prev_chain_id, tgt_id=whistleblower_id,
+                relation="debunks", weight=0.99,
             ))
 
         return graph
@@ -242,4 +271,37 @@ class ImageForensicsTask(BaseTask):
         return 2 + (graph.difficulty - 1)
 
     def has_manipulation(self, graph: ClaimGraph) -> bool:
-        return graph.true_label in ("fabricated", "out_of_context")
+        return graph.true_label == "fabricated"
+
+    def grade(self, episode_trace: list[dict], graph: ClaimGraph) -> float:
+        """
+        Hard multimodal task grader.
+        Partial credit:
+          +0.3  used temporal_audit (checks EXIF/metadata)
+          +0.2  used trace_origin (finds original image source)
+          +0.1  used entity_link (verifies depicted entities)
+          +0.4  submitted correct final verdict
+        """
+        import numpy as np
+        score = 0.001
+        actions = [s.get("action", "") for s in episode_trace if "action" in s]
+
+        if "temporal_audit" in actions:
+            score += 0.3
+        if "trace_origin" in actions:
+            score += 0.2
+        if "entity_link" in actions:
+            score += 0.1
+
+        final_verdict = next(
+            (a.replace("submit_verdict_", "") for a in reversed(actions)
+             if a.startswith("submit_verdict_")), None
+        )
+        if final_verdict == graph.true_label:
+            score += 0.4
+        elif final_verdict is not None:
+            misinfo = {"misinfo", "satire", "out_of_context", "fabricated"}
+            if final_verdict in misinfo and graph.true_label in misinfo:
+                score += 0.2
+
+        return float(np.clip(score, 0.001, 0.999))
