@@ -492,6 +492,24 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
     </div>
     """
 
+def _generate_graph_summary(env):
+    if getattr(env, "graph", None) is None:
+        return "Graph not initialized."
+    cov = env.graph.evidence_coverage
+    div = env.graph.source_diversity_entropy
+    con = env.graph.contradiction_surface_area
+    nodes = sum(1 for n in env.graph.nodes.values() if n.retrieved)
+    total_nodes = len(env.graph.nodes)
+    edges = sum(1 for e in env.graph.edges if e.discovered)
+    total_edges = len(env.graph.edges)
+    tactics = ", ".join([t.replace("_", " ").title() for t in env.graph.applied_tactics]) or "None detected"
+    return (f"Nodes Retrieved: {nodes}/{total_nodes}\n"
+            f"Edges Discovered: {edges}/{total_edges}\n"
+            f"Evidence Coverage: {cov:.1%}\n"
+            f"Source Diversity (Entropy): {div:.2f}\n"
+            f"Contradictions Found: {con}\n"
+            f"Suspected Tactics: {tactics}")
+
 # ─── Investigation Logic ──────────────────────────────────────────────────────
 
 def investigate(task_name, difficulty):
@@ -519,7 +537,7 @@ def investigate(task_name, difficulty):
             </div>
         </div>"""
         yield (_left_panel_idle(), err_panel, _right_panel_idle(),
-               _statusbar_html("ERROR", "0.0K/S"), gr.update(interactive=True))
+               _statusbar_html("ERROR", "0.0K/S"), gr.update(interactive=True), "Investigation Error.")
 
 def _investigate_inner(task_name, difficulty):
     agent = LLMAgent()
@@ -547,12 +565,14 @@ def _investigate_inner(task_name, difficulty):
 
     log_entries.append((_ts(), f'Task init: <b style="color:white;">{task_id.replace("_", " ").title()}</b>'))
     
+    summary = _generate_graph_summary(env)
     yield (
         _left_panel_active(log_entries),
         _center_active(claim_text, task_id, virality, source_dom, "Waking API..."),
         _right_panel_idle(),
         _statusbar_html("ACTIVE", f"{random.uniform(0.8,2.0):.1f}K/S"),
         gr.update(interactive=False),
+        summary,
     )
 
     done = False
@@ -595,12 +615,14 @@ def _investigate_inner(task_name, difficulty):
         visible_log = log_entries[-10:]
         fsm_state = getattr(agent, "_fsm_state", "Compute")
 
+        summary = _generate_graph_summary(env)
         yield (
             _left_panel_active(visible_log),
             _center_active(claim_text, task_id, virality, source_dom, "Analyzing Elements..."),
             _right_panel_active(think, predict, fsm_state, env.steps, coverage, contras),
             _statusbar_html("ACTIVE", f"{random.uniform(1.0,3.5):.1f}K/S"),
             gr.update(interactive=False),
+            summary,
         )
 
     true_label = env.graph.true_label if env.graph else "unknown"
@@ -608,12 +630,14 @@ def _investigate_inner(task_name, difficulty):
     correct = (verdict == true_label)
     confidence = env._estimate_confidence() if hasattr(env, "_estimate_confidence") else 0.85
 
+    summary = _generate_graph_summary(env)
     yield (
         _left_panel_active(log_entries[-12:]),
         _center_active(claim_text, task_id, virality, source_dom, "VERIFIED" if correct else "FLAGGED"),
         _right_panel_done(verdict, true_label, correct, env.steps, final_reward, confidence),
         _statusbar_html("OPTIMAL" if correct else "ALERT", f"{random.uniform(0.5,1.5):.1f}K/S"),
         gr.update(interactive=True),
+        summary,
     )
 
 # ─── Example Claims for Quick Demo ────────────────────────────────────────────
@@ -713,7 +737,7 @@ with gr.Blocks(title="FORGE — Forensic RL Graph Environment") as demo:
     start_btn.click(
         fn=investigate,
         inputs=[task_dd, diff_sl],
-        outputs=[left_panel, center_panel, right_panel, statusbar, start_btn],
+        outputs=[left_panel, center_panel, right_panel, statusbar, start_btn, graph_summary_box],
     )
 
 if __name__ == "__main__":
