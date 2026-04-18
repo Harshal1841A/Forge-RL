@@ -740,7 +740,7 @@ FORGE_JS_HTML = """
         ring.style.top  = ry + 'px';
         var pts = [];
 
-        window.addEventListener('mousemove', function(e) {
+        document.addEventListener('mousemove', function(e) {
             mx = e.clientX; my = e.clientY;
             dot.style.left = mx + 'px';
             dot.style.top  = my + 'px';
@@ -748,11 +748,11 @@ FORGE_JS_HTML = """
             if (pts.length > 26) pts.shift();
         }, { passive: true });
 
-        window.addEventListener('mousedown', function() {
+        document.addEventListener('mousedown', function() {
             dot.classList.add('clicked');
             ring.classList.add('clicked');
         }, { passive: true });
-        window.addEventListener('mouseup', function() {
+        document.addEventListener('mouseup', function() {
             dot.classList.remove('clicked');
             ring.classList.remove('clicked');
         }, { passive: true });
