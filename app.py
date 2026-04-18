@@ -1419,7 +1419,7 @@ with gr.Blocks(
                 with gr.Row():
                     with gr.Column(scale=3):
                         task_dd = gr.Dropdown(
-                            choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
+                            choices=["All Tasks (Random)"] + list(TASK_META.keys()),
                             value="All Tasks (Random)",
                             label="Investigation Protocol",
                         )
