@@ -600,9 +600,22 @@ FORGE_JS_HTML = """
 (function() {
     "use strict";
 
-    // ── Guard: only initialise once ──────────────────────────────────────
-    if (window.__forgeInit) return;
+    // ── Guard: only initialise once, but allow re-init if DOM was wiped ─
+    if (window.__forgeInit &&
+        document.getElementById('forge-dot') &&
+        document.getElementById('forge-ring') &&
+        document.getElementById('forge-aurora')) {
+        return;
+    }
     window.__forgeInit = true;
+
+    // ── Cleanup any stale elements from a previous render cycle ─────────
+    ['forge-aurora','forge-particles','forge-trail','forge-dot','forge-ring'].forEach(function(id){
+        var old = document.getElementById(id);
+        if (old) old.remove();
+    });
+    var oldStyle = document.getElementById('forge-global-style');
+    if (oldStyle) oldStyle.remove();
 
     // ── 1. Inject global CSS into <head> ─────────────────────────────────
     // Must go into <head>, not Gradio's scoped CSS, so cursor:none applies
@@ -706,8 +719,15 @@ FORGE_JS_HTML = """
     window.addEventListener('resize', resize);
 
     // ── 4. Cursor tracking ───────────────────────────────────────────────
-    var mx = -200, my = -200, rx = -200, ry = -200;
+    var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    var rx = mx, ry = my;
     var pts = [];
+
+    // Position cursor at screen center immediately so it's visible on load
+    dot.style.left = mx + 'px';
+    dot.style.top  = my + 'px';
+    ring.style.left = rx + 'px';
+    ring.style.top  = ry + 'px';
 
     document.addEventListener('mousemove', function(e) {
         mx = e.clientX; my = e.clientY;
@@ -1166,7 +1186,7 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
             <div style="display:flex; gap:10px; margin-top:18px;">
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
                             border-radius:12px; padding:10px; text-align:center;">
-                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{true_label.title()}</div>
+                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{true_label.replace("_", " ").title()}</div>
                     <div style="font-size:10px; color:var(--txt2); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">True Label</div>
                 </div>
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
@@ -1194,7 +1214,7 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
             <div style="display:flex; justify-content:space-between; padding-bottom:8px; margin-bottom:8px;
                         border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Ground Truth</span>
-                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{true_label.title()}</span>
+                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{true_label.replace("_", " ").title()}</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Confidence Score</span>
