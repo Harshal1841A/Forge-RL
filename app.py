@@ -95,27 +95,12 @@ html, body {
     min-height: 100vh;
 }
 
-/* Nuke every possible Gradio background wrapper */
-.gradio-container,
-.gradio-container > *,
-.contain,
-.app,
-footer,
-.built-with,
-div#root,
-[class*="svelte-"],
-[class*="wrap"],
-[class*="panel"],
-[class*="block"],
-[class*="form"],
-[class*="gap"],
-[class*="padded"],
-[class*="compact"],
-[class*="column"],
-[class*="row"] {
+/* Keep transparency, but avoid breaking Gradio component internals */
+html, body, .gradio-container, .app, #root {
     background: transparent !important;
     background-color: transparent !important;
 }
+footer, .built-with { display: none !important; }
 
 /* Override any inline style Gradio sets */
 .gradio-container {
@@ -582,8 +567,22 @@ button.primary:hover {
     border-radius: 12px !important;
 }
 
-/* Hide Gradio footer */
-footer, .built-with { display: none !important; }"""
+/* Task dropdown scoped styling */
+#task-dropdown,
+#task-dropdown * {
+    color: white !important;
+}
+#task-dropdown [data-testid="dropdown"],
+#task-dropdown .wrap,
+#task-dropdown .secondary-wrap,
+#task-dropdown input {
+    background: rgba(0,0,0,0.6) !important;
+    border-color: rgba(255,255,255,0.12) !important;
+}
+#task-dropdown [role="listbox"] {
+    background: rgba(0,0,0,0.9) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+}"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ░░  JAVASCRIPT INJECTION — Cursor · Aurora · Particles · Radar  ░░
@@ -600,8 +599,13 @@ FORGE_JS_HTML = """
 (function() {
     "use strict";
 
-    // ── Guard: only initialise once ──────────────────────────────────────
-    if (window.__forgeInit) return;
+    // ── Guard: re-initialise if cursor/canvas DOM nodes are missing ──────
+    if (window.__forgeInit &&
+        document.getElementById('forge-dot') &&
+        document.getElementById('forge-ring') &&
+        document.getElementById('forge-aurora')) {
+        return;
+    }
     window.__forgeInit = true;
 
     // ── 1. Inject global CSS into <head> ─────────────────────────────────
@@ -670,7 +674,12 @@ FORGE_JS_HTML = """
     ].join('\n');
     document.head.appendChild(style);
 
-    // ── 2. Create canvas + cursor elements, append to body ───────────────
+    // ── 2. Remove any stale forge-* nodes, then create fresh ones ────────
+    ['forge-aurora','forge-particles','forge-trail','forge-dot','forge-ring'].forEach(function(id){
+        var old = document.getElementById(id);
+        if (old) old.remove();
+    });
+
     function makeCanvas(id) {
         var c = document.createElement('canvas');
         c.id  = id;
@@ -706,7 +715,12 @@ FORGE_JS_HTML = """
     window.addEventListener('resize', resize);
 
     // ── 4. Cursor tracking ───────────────────────────────────────────────
-    var mx = -200, my = -200, rx = -200, ry = -200;
+    var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    var rx = mx, ry = my;
+    dot.style.left = mx + 'px';
+    dot.style.top  = my + 'px';
+    ring.style.left = rx + 'px';
+    ring.style.top  = ry + 'px';
     var pts = [];
 
     document.addEventListener('mousemove', function(e) {
@@ -1422,6 +1436,8 @@ with gr.Blocks(
                             choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
                             value="All Tasks (Random)",
                             label="Investigation Protocol",
+                            type="value",
+                            elem_id="task-dropdown",
                         )
                     with gr.Column(scale=1):
                         diff_sl = gr.Slider(
