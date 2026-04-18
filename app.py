@@ -600,9 +600,21 @@ FORGE_JS_HTML = """
 (function() {
     "use strict";
 
-    // ── Guard: only initialise once ──────────────────────────────────────
-    if (window.__forgeInit) return;
+    // ── Guard: only initialise once (re-init if DOM elements were removed) ─
+    if (window.__forgeInit &&
+        document.getElementById('forge-dot') &&
+        document.getElementById('forge-ring') &&
+        document.getElementById('forge-aurora')) {
+        return;
+    }
     window.__forgeInit = true;
+
+    // ── Cleanup stale elements from any previous Gradio render ───────────
+    ['forge-aurora','forge-particles','forge-trail','forge-dot','forge-ring','forge-global-style']
+        .forEach(function(id) {
+            var old = document.getElementById(id);
+            if (old) old.remove();
+        });
 
     // ── 1. Inject global CSS into <head> ─────────────────────────────────
     // Must go into <head>, not Gradio's scoped CSS, so cursor:none applies
@@ -706,7 +718,12 @@ FORGE_JS_HTML = """
     window.addEventListener('resize', resize);
 
     // ── 4. Cursor tracking ───────────────────────────────────────────────
-    var mx = -200, my = -200, rx = -200, ry = -200;
+    var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    var rx = mx, ry = my;
+    dot.style.left  = mx + 'px';
+    dot.style.top   = my + 'px';
+    ring.style.left = rx + 'px';
+    ring.style.top  = ry + 'px';
     var pts = [];
 
     document.addEventListener('mousemove', function(e) {
@@ -1138,6 +1155,21 @@ def _right_panel_active(think, predict, fsm_state, step_num, max_steps, coverage
     """
 
 
+def _human_label(label: str) -> str:
+    """Convert snake_case label to human-readable display (e.g. out_of_context → Out of Context)."""
+    if not label:
+        return "Unknown"
+    _LOWER_WORDS = {"a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "up", "via"}
+    words = label.replace("_", " ").strip().split()
+    result = []
+    for i, word in enumerate(words):
+        if i == 0 or word.lower() not in _LOWER_WORDS:
+            result.append(word.capitalize())
+        else:
+            result.append(word.lower())
+    return " ".join(result)
+
+
 def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
     cls         = "verdict-correct" if correct else "verdict-wrong"
     glow_color  = "var(--c-green)"  if correct else "var(--c-pink)"
@@ -1166,7 +1198,7 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
             <div style="display:flex; gap:10px; margin-top:18px;">
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
                             border-radius:12px; padding:10px; text-align:center;">
-                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{true_label.title()}</div>
+                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{_human_label(true_label)}</div>
                     <div style="font-size:10px; color:var(--txt2); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">True Label</div>
                 </div>
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
@@ -1189,12 +1221,12 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
                         border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Submitted Verdict</span>
                 <span style="font-size:12px; color:var(--txt); font-weight:700; font-family:var(--font-mono);">
-                    {verdict.replace("_"," ").title() if verdict else "None"}</span>
+                    {_human_label(verdict) if verdict else "None"}</span>
             </div>
             <div style="display:flex; justify-content:space-between; padding-bottom:8px; margin-bottom:8px;
                         border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Ground Truth</span>
-                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{true_label.title()}</span>
+                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{_human_label(true_label)}</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Confidence Score</span>
