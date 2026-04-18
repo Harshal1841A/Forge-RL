@@ -583,7 +583,41 @@ button.primary:hover {
 }
 
 /* Hide Gradio footer */
-footer, .built-with { display: none !important; }"""
+footer, .built-with { display: none !important; }
+
+/* ── VISIBILITY FIXES ────────────────────────────────────────────────────── */
+.gradio-container ul.options {
+    background-color: #0c0c0c !important;
+    border: 1px solid rgba(0,245,255,0.4) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.9) !important;
+    z-index: 1000 !important;
+}
+
+.gradio-container ul.options li.item {
+    color: white !important;
+    background-color: transparent !important;
+}
+
+.gradio-container ul.options li.item:hover,
+.gradio-container ul.options li.item.selected {
+    background-color: rgba(0,245,255,0.1) !important;
+    color: #00f5ff !important;
+}
+
+.forge-examples table {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.forge-examples table td, 
+.forge-examples table th,
+.forge-examples table td *, 
+.forge-examples table th * {
+    color: #00f5ff !important;
+    border-color: rgba(255,255,255,0.05) !important;
+    background: transparent !important;
+}
+"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ░░  JAVASCRIPT INJECTION — Cursor · Aurora · Particles · Radar  ░░
@@ -1433,6 +1467,7 @@ with gr.Blocks(
                     start_btn = gr.Button("▶  Launch Deep Analysis", variant="primary")
 
                 gr.Examples(
+                    elem_classes=["forge-examples"],
                     examples=[[t, d] for t, d, _ in EXAMPLE_CLAIMS],
                     inputs=[task_dd, diff_sl],
                     label="⚡ Quick start — click any example",
