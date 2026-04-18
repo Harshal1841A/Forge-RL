@@ -48,6 +48,13 @@ ACTION_ICONS = {
     "submit_verdict_fabricated": "⚠️",
 }
 
+def _human_label(label: str) -> str:
+    if not label:
+        return "Unknown"
+    words = label.replace("_", " ").strip().split()
+    return " ".join(w.capitalize() for w in words)
+
+
 ACTION_COLORS = {
     "query_source":    "#00f5ff",
     "trace_origin":    "#00f5ff",
@@ -95,24 +102,8 @@ html, body {
     min-height: 100vh;
 }
 
-/* Nuke every possible Gradio background wrapper */
-.gradio-container,
-.gradio-container > *,
-.contain,
-.app,
-footer,
-.built-with,
-div#root,
-[class*="svelte-"],
-[class*="wrap"],
-[class*="panel"],
-[class*="block"],
-[class*="form"],
-[class*="gap"],
-[class*="padded"],
-[class*="compact"],
-[class*="column"],
-[class*="row"] {
+/* Keep transparency, but avoid breaking Gradio component internals */
+html, body, .gradio-container, .app, #root {
     background: transparent !important;
     background-color: transparent !important;
 }
@@ -583,7 +574,51 @@ button.primary:hover {
 }
 
 /* Hide Gradio footer */
-footer, .built-with { display: none !important; }"""
+footer, .built-with { display: none !important; }
+
+/* ----- Task dropdown: high contrast ----- */
+#task-dropdown,
+#task-dropdown * {
+    color: white !important;
+}
+#task-dropdown [data-testid="dropdown"],
+#task-dropdown .wrap,
+#task-dropdown .secondary-wrap {
+    background: rgba(8, 10, 20, 0.92) !important;
+    border: 1px solid rgba(0,245,255,0.45) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 0 0 1px rgba(0,245,255,0.12), 0 8px 28px rgba(0,0,0,0.55) !important;
+}
+#task-dropdown input,
+#task-dropdown span,
+#task-dropdown svg {
+    color: #eaf6ff !important;
+    fill: #eaf6ff !important;
+}
+#task-dropdown [data-testid="dropdown"]:hover {
+    border-color: rgba(191,0,255,0.65) !important;
+    box-shadow: 0 0 0 1px rgba(191,0,255,0.2), 0 10px 30px rgba(0,0,0,0.6) !important;
+}
+#task-dropdown [data-testid="dropdown"]:focus-within {
+    border-color: #00f5ff !important;
+    box-shadow: 0 0 0 2px rgba(0,245,255,0.28), 0 10px 30px rgba(0,0,0,0.62) !important;
+}
+#task-dropdown [role="listbox"] {
+    background: rgba(6, 8, 16, 0.98) !important;
+    border: 1px solid rgba(0,245,255,0.35) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.65) !important;
+}
+#task-dropdown [role="option"] {
+    color: #dff3ff !important;
+}
+#task-dropdown [role="option"][aria-selected="true"] {
+    background: rgba(0,245,255,0.16) !important;
+    color: #ffffff !important;
+}
+#task-dropdown [role="option"]:hover {
+    background: rgba(191,0,255,0.18) !important;
+}"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ░░  JAVASCRIPT INJECTION — Cursor · Aurora · Particles · Radar  ░░
@@ -597,231 +632,234 @@ footer, .built-with { display: none !important; }"""
 # ──────────────────────────────────────────────────────────────────────────────
 FORGE_JS_HTML = """
 <script>
-(function() {
-    "use strict";
+(function () {
+  "use strict";
 
-    // ── Guard: only initialise once ──────────────────────────────────────
-    if (window.__forgeInit) return;
-    window.__forgeInit = true;
+  // ---- Idempotent cleanup: remove stale forge nodes from prior renders ----
+  var FORGE_IDS = ["forge-aurora", "forge-particles", "forge-trail", "forge-dot", "forge-ring"];
+  FORGE_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+  });
+  var oldStyle = document.getElementById("forge-global-style");
+  if (oldStyle) oldStyle.remove();
 
-    // ── 1. Inject global CSS into <head> ─────────────────────────────────
-    // Must go into <head>, not Gradio's scoped CSS, so cursor:none applies
-    // to the whole page and our fixed elements are styled correctly.
-    var style = document.createElement('style');
-    style.id  = 'forge-global-style';
-    style.textContent = [
-        /* Force cursor:none on everything */
-        '*, *::before, *::after { cursor: none !important; }',
+  // ---- Inject global CSS into <head> ----
+  var style = document.createElement("style");
+  style.id = "forge-global-style";
+  style.textContent = [
+    "*, *::before, *::after { cursor: none !important; }",
 
-        /* Aurora canvas */
-        '#forge-aurora {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:0;',
-        '}',
+    "#forge-aurora {",
+    "  position:fixed; top:0; left:0; width:100vw; height:100vh;",
+    "  pointer-events:none !important; z-index:0;",
+    "}",
 
-        /* Particle canvas */
-        '#forge-particles {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:1;',
-        '}',
+    "#forge-particles {",
+    "  position:fixed; top:0; left:0; width:100vw; height:100vh;",
+    "  pointer-events:none !important; z-index:1;",
+    "}",
 
-        /* Comet trail canvas */
-        '#forge-trail {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:2;',
-        '}',
+    "#forge-trail {",
+    "  position:fixed; top:0; left:0; width:100vw; height:100vh;",
+    "  pointer-events:none !important; z-index:2;",
+    "}",
 
-        /* Cursor dot */
-        '#forge-dot {',
-        '  position:fixed; top:0; left:0;',
-        '  width:9px; height:9px; border-radius:50%;',
-        '  background:#00f5ff;',
-        '  box-shadow: 0 0 12px #00f5ff, 0 0 28px rgba(0,245,255,0.5);',
-        '  pointer-events:none; z-index:99999;',
-        '  transform:translate(-50%,-50%);',
-        '  transition:transform 0.07s, background 0.2s;',
-        '}',
-        '#forge-dot.clicked {',
-        '  transform:translate(-50%,-50%) scale(2);',
-        '  background:#bf00ff;',
-        '  box-shadow: 0 0 20px #bf00ff, 0 0 40px rgba(191,0,255,0.5);',
-        '}',
+    "#forge-dot {",
+    "  position:fixed; top:0; left:0;",
+    "  width:9px; height:9px; border-radius:50%;",
+    "  background:#00f5ff;",
+    "  box-shadow: 0 0 12px #00f5ff, 0 0 28px rgba(0,245,255,0.5);",
+    "  pointer-events:none !important; z-index:2147483646;",
+    "  transform:translate(-50%,-50%);",
+    "  transition:transform 0.07s, background 0.2s;",
+    "}",
+    "#forge-dot.clicked {",
+    "  transform:translate(-50%,-50%) scale(2);",
+    "  background:#bf00ff;",
+    "  box-shadow: 0 0 20px #bf00ff, 0 0 40px rgba(191,0,255,0.5);",
+    "}",
 
-        /* Cursor ring */
-        '#forge-ring {',
-        '  position:fixed; top:0; left:0;',
-        '  width:36px; height:36px; border-radius:50%;',
-        '  border:1.5px solid rgba(0,245,255,0.5);',
-        '  pointer-events:none; z-index:99998;',
-        '  transform:translate(-50%,-50%);',
-        '  transition:width 0.22s, height 0.22s, border-color 0.25s;',
-        '}',
-        '#forge-ring.clicked {',
-        '  width:54px; height:54px;',
-        '  border-color:rgba(191,0,255,0.6);',
-        '}',
+    "#forge-ring {",
+    "  position:fixed; top:0; left:0;",
+    "  width:36px; height:36px; border-radius:50%;",
+    "  border:1.5px solid rgba(0,245,255,0.5);",
+    "  pointer-events:none !important; z-index:2147483645;",
+    "  transform:translate(-50%,-50%);",
+    "  transition:width 0.22s, height 0.22s, border-color 0.25s;",
+    "}",
+    "#forge-ring.clicked {",
+    "  width:54px; height:54px;",
+    "  border-color:rgba(191,0,255,0.6);",
+    "}",
 
-        /* Make Gradio background transparent so aurora shows through */
-        'body, html { background:#000 !important; }',
-        '.gradio-container, .gradio-container > div,',
-        '.app, .svelte-1gfkn6j, #root, [id^="svelte-"] {',
-        '  background:transparent !important;',
-        '}',
-    ].join('\n');
-    document.head.appendChild(style);
+    "body, html { background:#000 !important; }",
+    ".gradio-container, .app, #root {",
+    "  background:transparent !important;",
+    "}",
+  ].join("\\n");
+  document.head.appendChild(style);
 
-    // ── 2. Create canvas + cursor elements, append to body ───────────────
-    function makeCanvas(id) {
-        var c = document.createElement('canvas');
-        c.id  = id;
-        document.body.appendChild(c);
-        return c;
-    }
-    function makeDiv(id) {
-        var d = document.createElement('div');
-        d.id  = id;
-        document.body.appendChild(d);
-        return d;
-    }
+  // ---- Create canvas + cursor elements, append to body ----
+  function makeCanvas(id) {
+    var c = document.createElement("canvas");
+    c.id  = id;
+    document.body.appendChild(c);
+    return c;
+  }
+  function makeDiv(id) {
+    var d = document.createElement("div");
+    d.id  = id;
+    document.body.appendChild(d);
+    return d;
+  }
 
-    var aCV   = makeCanvas('forge-aurora');
-    var pCV   = makeCanvas('forge-particles');
-    var tCV   = makeCanvas('forge-trail');
-    var dot   = makeDiv('forge-dot');
-    var ring  = makeDiv('forge-ring');
+  var aCV   = makeCanvas("forge-aurora");
+  var pCV   = makeCanvas("forge-particles");
+  var tCV   = makeCanvas("forge-trail");
+  var dot   = makeDiv("forge-dot");
+  var ring  = makeDiv("forge-ring");
 
-    var aCtx  = aCV.getContext('2d');
-    var pCtx  = pCV.getContext('2d');
-    var tCtx  = tCV.getContext('2d');
+  var aCtx  = aCV.getContext("2d");
+  var pCtx  = pCV.getContext("2d");
+  var tCtx  = tCV.getContext("2d");
 
-    // ── 3. Resize all canvases to viewport ───────────────────────────────
-    function resize() {
-        var W = window.innerWidth, H = window.innerHeight;
-        [aCV, pCV, tCV].forEach(function(c) {
-            c.width  = W;
-            c.height = H;
-        });
-    }
-    resize();
-    window.addEventListener('resize', resize);
-
-    // ── 4. Cursor tracking ───────────────────────────────────────────────
-    var mx = -200, my = -200, rx = -200, ry = -200;
-    var pts = [];
-
-    document.addEventListener('mousemove', function(e) {
-        mx = e.clientX; my = e.clientY;
-        dot.style.left = mx + 'px';
-        dot.style.top  = my + 'px';
-        pts.push({ x: mx, y: my });
-        if (pts.length > 26) pts.shift();
+  // ---- Resize all canvases to viewport ----
+  function resize() {
+    var W = window.innerWidth, H = window.innerHeight;
+    [aCV, pCV, tCV].forEach(function(c) {
+      c.width  = W;
+      c.height = H;
     });
+  }
+  resize();
+  window.addEventListener("resize", resize, { passive: true });
 
-    document.addEventListener('mousedown', function() {
-        dot.classList.add('clicked');
-        ring.classList.add('clicked');
+  // ---- Cursor tracking — start centered so visible before first mousemove ----
+  var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  var rx = mx, ry = my;
+  dot.style.left  = mx + "px";
+  dot.style.top   = my + "px";
+  ring.style.left = rx + "px";
+  ring.style.top  = ry + "px";
+
+  var pts = [];
+
+  // Use window listeners to survive nested Gradio overlays
+  window.addEventListener("mousemove", function(e) {
+    mx = e.clientX; my = e.clientY;
+    dot.style.left = mx + "px";
+    dot.style.top  = my + "px";
+    pts.push({ x: mx, y: my });
+    if (pts.length > 26) pts.shift();
+  }, { passive: true });
+
+  window.addEventListener("mousedown", function() {
+    dot.classList.add("clicked");
+    ring.classList.add("clicked");
+  }, { passive: true });
+
+  window.addEventListener("mouseup", function() {
+    dot.classList.remove("clicked");
+    ring.classList.remove("clicked");
+  }, { passive: true });
+
+  // ---- Aurora blobs data ----
+  var blobs = [
+    { x:0.12, y:0.18, r:0.32, c:[0,170,255],   sp:0.00028, ph:0   },
+    { x:0.78, y:0.25, r:0.40, c:[170,0,255],   sp:0.00021, ph:2.1 },
+    { x:0.50, y:0.82, r:0.28, c:[255,0,100],   sp:0.00025, ph:4.2 },
+    { x:0.88, y:0.70, r:0.24, c:[0,200,120],   sp:0.00018, ph:1.0 },
+  ];
+
+  // ---- Particle data ----
+  var PCOLS = [[0,245,255],[191,0,255],[255,0,110],[0,255,135]];
+  var W0 = window.innerWidth, H0 = window.innerHeight;
+  var parts = [];
+  for (var k = 0; k < 70; k++) {
+    parts.push({
+      x:  Math.random() * W0,
+      y:  Math.random() * H0,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r:  Math.random() * 1.5 + 0.3,
+      a:  Math.random() * 0.45 + 0.12,
+      c:  PCOLS[Math.floor(Math.random() * 4)],
     });
-    document.addEventListener('mouseup', function() {
-        dot.classList.remove('clicked');
-        ring.classList.remove('clicked');
-    });
+  }
 
-    // ── 5. Aurora blobs data ─────────────────────────────────────────────
-    var blobs = [
-        { x:0.12, y:0.18, r:0.32, c:[0,170,255],   sp:0.00028, ph:0   },
-        { x:0.78, y:0.25, r:0.40, c:[170,0,255],   sp:0.00021, ph:2.1 },
-        { x:0.50, y:0.82, r:0.28, c:[255,0,100],   sp:0.00025, ph:4.2 },
-        { x:0.88, y:0.70, r:0.24, c:[0,200,120],   sp:0.00018, ph:1.0 },
-    ];
+  // ---- Main animation loop ----
+  function loop(ts) {
+    var W = aCV.width, H = aCV.height;
 
-    // ── 6. Particle data ─────────────────────────────────────────────────
-    var PCOLS = [[0,245,255],[191,0,255],[255,0,110],[0,255,135]];
-    var W0 = window.innerWidth, H0 = window.innerHeight;
-    var parts = [];
-    for (var k = 0; k < 70; k++) {
-        parts.push({
-            x:  Math.random() * W0,
-            y:  Math.random() * H0,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: (Math.random() - 0.5) * 0.3,
-            r:  Math.random() * 1.5 + 0.3,
-            a:  Math.random() * 0.45 + 0.12,
-            c:  PCOLS[Math.floor(Math.random() * 4)],
-        });
+    /* — Aurora — */
+    aCtx.clearRect(0, 0, W, H);
+    for (var bi = 0; bi < blobs.length; bi++) {
+      var b  = blobs[bi];
+      var ox = Math.sin(ts * b.sp + b.ph) * 0.09;
+      var oy = Math.cos(ts * b.sp * 1.3 + b.ph) * 0.08;
+      var cx = (b.x + ox) * W;
+      var cy = (b.y + oy) * H;
+      var br = b.r * Math.min(W, H);
+      var g  = aCtx.createRadialGradient(cx, cy, 0, cx, cy, br);
+      g.addColorStop(0, "rgba(" + b.c + ",0.19)");
+      g.addColorStop(0.5, "rgba(" + b.c + ",0.07)");
+      g.addColorStop(1, "transparent");
+      aCtx.fillStyle = g;
+      aCtx.beginPath();
+      aCtx.arc(cx, cy, br, 0, Math.PI * 2);
+      aCtx.fill();
     }
 
-    // ── 7. Main animation loop ───────────────────────────────────────────
-    function loop(ts) {
-        var W = aCV.width, H = aCV.height;
-
-        /* — Aurora — */
-        aCtx.clearRect(0, 0, W, H);
-        for (var bi = 0; bi < blobs.length; bi++) {
-            var b  = blobs[bi];
-            var ox = Math.sin(ts * b.sp + b.ph) * 0.09;
-            var oy = Math.cos(ts * b.sp * 1.3 + b.ph) * 0.08;
-            var cx = (b.x + ox) * W;
-            var cy = (b.y + oy) * H;
-            var br = b.r * Math.min(W, H);
-            var g  = aCtx.createRadialGradient(cx, cy, 0, cx, cy, br);
-            g.addColorStop(0, 'rgba(' + b.c + ',0.19)');
-            g.addColorStop(0.5, 'rgba(' + b.c + ',0.07)');
-            g.addColorStop(1, 'transparent');
-            aCtx.fillStyle = g;
-            aCtx.beginPath();
-            aCtx.arc(cx, cy, br, 0, Math.PI * 2);
-            aCtx.fill();
-        }
-
-        /* — Particles — */
-        pCtx.clearRect(0, 0, W, H);
-        for (var pi = 0; pi < parts.length; pi++) {
-            var p = parts[pi];
-            p.x = (p.x + p.vx + W) % W;
-            p.y = (p.y + p.vy + H) % H;
-            pCtx.beginPath();
-            pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            pCtx.fillStyle = 'rgba(' + p.c + ',' + p.a + ')';
-            pCtx.fill();
-        }
-        /* connecting lines between nearby particles */
-        for (var ai = 0; ai < parts.length; ai++) {
-            for (var aj = ai + 1; aj < parts.length; aj++) {
-                var dx = parts[ai].x - parts[aj].x;
-                var dy = parts[ai].y - parts[aj].y;
-                var d  = Math.sqrt(dx * dx + dy * dy);
-                if (d < 88) {
-                    pCtx.beginPath();
-                    pCtx.moveTo(parts[ai].x, parts[ai].y);
-                    pCtx.lineTo(parts[aj].x, parts[aj].y);
-                    pCtx.strokeStyle = 'rgba(0,245,255,' + (0.05 * (1 - d / 88)) + ')';
-                    pCtx.lineWidth   = 0.5;
-                    pCtx.stroke();
-                }
-            }
-        }
-
-        /* — Cursor ring lag — */
-        rx += (mx - rx) * 0.11;
-        ry += (my - ry) * 0.11;
-        ring.style.left = rx + 'px';
-        ring.style.top  = ry + 'px';
-
-        /* — Comet trail — */
-        tCtx.clearRect(0, 0, W, H);
-        for (var ti = 1; ti < pts.length; ti++) {
-            var t = ti / pts.length;
-            tCtx.beginPath();
-            tCtx.moveTo(pts[ti - 1].x, pts[ti - 1].y);
-            tCtx.lineTo(pts[ti].x,     pts[ti].y);
-            tCtx.lineWidth   = t * 4;
-            tCtx.strokeStyle = 'rgba(0,245,255,' + (t * 0.5) + ')';
-            tCtx.stroke();
-        }
-
-        requestAnimationFrame(loop);
+    /* — Particles — */
+    pCtx.clearRect(0, 0, W, H);
+    for (var pi = 0; pi < parts.length; pi++) {
+      var p = parts[pi];
+      p.x = (p.x + p.vx + W) % W;
+      p.y = (p.y + p.vy + H) % H;
+      pCtx.beginPath();
+      pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      pCtx.fillStyle = "rgba(" + p.c + "," + p.a + ")";
+      pCtx.fill();
     }
+    /* connecting lines between nearby particles */
+    for (var ai = 0; ai < parts.length; ai++) {
+      for (var aj = ai + 1; aj < parts.length; aj++) {
+        var dx = parts[ai].x - parts[aj].x;
+        var dy = parts[ai].y - parts[aj].y;
+        var d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < 88) {
+          pCtx.beginPath();
+          pCtx.moveTo(parts[ai].x, parts[ai].y);
+          pCtx.lineTo(parts[aj].x, parts[aj].y);
+          pCtx.strokeStyle = "rgba(0,245,255," + (0.05 * (1 - d / 88)) + ")";
+          pCtx.lineWidth   = 0.5;
+          pCtx.stroke();
+        }
+      }
+    }
+
+    /* — Cursor ring lag — */
+    rx += (mx - rx) * 0.11;
+    ry += (my - ry) * 0.11;
+    ring.style.left = rx + "px";
+    ring.style.top  = ry + "px";
+
+    /* — Comet trail — */
+    tCtx.clearRect(0, 0, W, H);
+    for (var ti = 1; ti < pts.length; ti++) {
+      var t = ti / pts.length;
+      tCtx.beginPath();
+      tCtx.moveTo(pts[ti - 1].x, pts[ti - 1].y);
+      tCtx.lineTo(pts[ti].x,     pts[ti].y);
+      tCtx.lineWidth   = t * 4;
+      tCtx.strokeStyle = "rgba(0,245,255," + (t * 0.5) + ")";
+      tCtx.stroke();
+    }
+
     requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
 
 })();
 </script>
@@ -1166,7 +1204,7 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
             <div style="display:flex; gap:10px; margin-top:18px;">
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
                             border-radius:12px; padding:10px; text-align:center;">
-                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{true_label.title()}</div>
+                    <div style="font-size:16px; font-weight:800; color:{glow_color};">{_human_label(true_label)}</div>
                     <div style="font-size:10px; color:var(--txt2); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px;">True Label</div>
                 </div>
                 <div style="flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
@@ -1189,12 +1227,12 @@ def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
                         border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Submitted Verdict</span>
                 <span style="font-size:12px; color:var(--txt); font-weight:700; font-family:var(--font-mono);">
-                    {verdict.replace("_"," ").title() if verdict else "None"}</span>
+                    {_human_label(verdict) if verdict else "None"}</span>
             </div>
             <div style="display:flex; justify-content:space-between; padding-bottom:8px; margin-bottom:8px;
                         border-bottom:1px solid rgba(255,255,255,0.05);">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Ground Truth</span>
-                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{true_label.title()}</span>
+                <span style="font-size:12px; color:{glow_color}; font-weight:700;">{_human_label(true_label)}</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
                 <span style="font-size:12px; color:var(--txt2); font-weight:500;">Confidence Score</span>
@@ -1422,6 +1460,8 @@ with gr.Blocks(
                             choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
                             value="All Tasks (Random)",
                             label="Investigation Protocol",
+                            type="value",
+                            elem_id="task-dropdown",
                         )
                     with gr.Column(scale=1):
                         diff_sl = gr.Slider(
