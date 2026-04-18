@@ -1156,10 +1156,18 @@ def _right_panel_active(think, predict, fsm_state, step_num, max_steps, coverage
 
 
 def _human_label(label: str) -> str:
-    """Convert snake_case label to human-readable title (e.g. out_of_context → Out of Context)."""
+    """Convert snake_case label to human-readable display (e.g. out_of_context → Out of Context)."""
     if not label:
         return "Unknown"
-    return label.replace("_", " ").title()
+    _LOWER_WORDS = {"a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "up", "via"}
+    words = label.replace("_", " ").strip().split()
+    result = []
+    for i, word in enumerate(words):
+        if i == 0 or word.lower() not in _LOWER_WORDS:
+            result.append(word.capitalize())
+        else:
+            result.append(word.lower())
+    return " ".join(result)
 
 
 def _right_panel_done(verdict, true_label, correct, steps, reward, confidence):
