@@ -95,24 +95,8 @@ html, body {
     min-height: 100vh;
 }
 
-/* Nuke every possible Gradio background wrapper */
-.gradio-container,
-.gradio-container > *,
-.contain,
-.app,
-footer,
-.built-with,
-div#root,
-[class*="svelte-"],
-[class*="wrap"],
-[class*="panel"],
-[class*="block"],
-[class*="form"],
-[class*="gap"],
-[class*="padded"],
-[class*="compact"],
-[class*="column"],
-[class*="row"] {
+/* Keep transparency without breaking Gradio component internals */
+html, body, .gradio-container, .app, #root, .contain {
     background: transparent !important;
     background-color: transparent !important;
 }
@@ -583,7 +567,45 @@ button.primary:hover {
 }
 
 /* Hide Gradio footer */
-footer, .built-with { display: none !important; }"""
+footer, .built-with { display: none !important; }
+
+/* ── TASK DROPDOWN — scoped to elem_id so other controls are unaffected ── */
+#task-dropdown,
+#task-dropdown * {
+    color: white !important;
+}
+#task-dropdown .wrap,
+#task-dropdown .secondary-wrap,
+#task-dropdown input {
+    background: rgba(0, 0, 0, 0.75) !important;
+    border: 1px solid rgba(0, 245, 255, 0.28) !important;
+    border-radius: 10px !important;
+    color: white !important;
+}
+#task-dropdown .wrap:hover,
+#task-dropdown .wrap:focus-within {
+    border-color: rgba(0, 245, 255, 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.12) !important;
+}
+#task-dropdown ul.options,
+#task-dropdown [role="listbox"] {
+    background: rgba(8, 8, 18, 0.97) !important;
+    border: 1px solid rgba(0, 245, 255, 0.22) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+}
+#task-dropdown ul.options li,
+#task-dropdown [role="option"] {
+    color: white !important;
+    background: transparent !important;
+}
+#task-dropdown ul.options li:hover,
+#task-dropdown [role="option"]:hover,
+#task-dropdown ul.options li.selected,
+#task-dropdown [aria-selected="true"] {
+    background: rgba(0, 245, 255, 0.14) !important;
+    color: var(--c-cyan) !important;
+}"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ░░  JAVASCRIPT INJECTION — Cursor · Aurora · Particles · Radar  ░░
@@ -600,131 +622,140 @@ FORGE_JS_HTML = """
 (function() {
     "use strict";
 
-    // ── Guard: only initialise once ──────────────────────────────────────
-    if (window.__forgeInit) return;
-    window.__forgeInit = true;
-
-    // ── 1. Inject global CSS into <head> ─────────────────────────────────
-    // Must go into <head>, not Gradio's scoped CSS, so cursor:none applies
-    // to the whole page and our fixed elements are styled correctly.
-    var style = document.createElement('style');
-    style.id  = 'forge-global-style';
-    style.textContent = [
-        /* Force cursor:none on everything */
-        '*, *::before, *::after { cursor: none !important; }',
-
-        /* Aurora canvas */
-        '#forge-aurora {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:0;',
-        '}',
-
-        /* Particle canvas */
-        '#forge-particles {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:1;',
-        '}',
-
-        /* Comet trail canvas */
-        '#forge-trail {',
-        '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
-        '  pointer-events:none; z-index:2;',
-        '}',
-
-        /* Cursor dot */
-        '#forge-dot {',
-        '  position:fixed; top:0; left:0;',
-        '  width:9px; height:9px; border-radius:50%;',
-        '  background:#00f5ff;',
-        '  box-shadow: 0 0 12px #00f5ff, 0 0 28px rgba(0,245,255,0.5);',
-        '  pointer-events:none; z-index:99999;',
-        '  transform:translate(-50%,-50%);',
-        '  transition:transform 0.07s, background 0.2s;',
-        '}',
-        '#forge-dot.clicked {',
-        '  transform:translate(-50%,-50%) scale(2);',
-        '  background:#bf00ff;',
-        '  box-shadow: 0 0 20px #bf00ff, 0 0 40px rgba(191,0,255,0.5);',
-        '}',
-
-        /* Cursor ring */
-        '#forge-ring {',
-        '  position:fixed; top:0; left:0;',
-        '  width:36px; height:36px; border-radius:50%;',
-        '  border:1.5px solid rgba(0,245,255,0.5);',
-        '  pointer-events:none; z-index:99998;',
-        '  transform:translate(-50%,-50%);',
-        '  transition:width 0.22s, height 0.22s, border-color 0.25s;',
-        '}',
-        '#forge-ring.clicked {',
-        '  width:54px; height:54px;',
-        '  border-color:rgba(191,0,255,0.6);',
-        '}',
-
-        /* Make Gradio background transparent so aurora shows through */
-        'body, html { background:#000 !important; }',
-        '.gradio-container, .gradio-container > div,',
-        '.app, .svelte-1gfkn6j, #root, [id^="svelte-"] {',
-        '  background:transparent !important;',
-        '}',
-    ].join('\n');
-    document.head.appendChild(style);
-
-    // ── 2. Create canvas + cursor elements, append to body ───────────────
-    function makeCanvas(id) {
-        var c = document.createElement('canvas');
-        c.id  = id;
-        document.body.appendChild(c);
-        return c;
-    }
-    function makeDiv(id) {
-        var d = document.createElement('div');
-        d.id  = id;
-        document.body.appendChild(d);
-        return d;
+    function removeIfExists(id) {
+        var el = document.getElementById(id);
+        if (el) el.parentNode.removeChild(el);
     }
 
-    var aCV   = makeCanvas('forge-aurora');
-    var pCV   = makeCanvas('forge-particles');
-    var tCV   = makeCanvas('forge-trail');
-    var dot   = makeDiv('forge-dot');
-    var ring  = makeDiv('forge-ring');
+    function init() {
+        // ── Cleanup stale elements from previous Gradio renders (idempotent) ─
+        ['forge-global-style','forge-aurora','forge-particles','forge-trail',
+         'forge-dot','forge-ring'].forEach(removeIfExists);
 
-    var aCtx  = aCV.getContext('2d');
-    var pCtx  = pCV.getContext('2d');
-    var tCtx  = tCV.getContext('2d');
+        // ── 1. Inject global CSS into <head> ──────────────────────────────
+        var style = document.createElement('style');
+        style.id  = 'forge-global-style';
+        style.textContent = [
+            /* Force cursor:none on everything */
+            '*, *::before, *::after { cursor: none !important; }',
 
-    // ── 3. Resize all canvases to viewport ───────────────────────────────
-    function resize() {
-        var W = window.innerWidth, H = window.innerHeight;
-        [aCV, pCV, tCV].forEach(function(c) {
-            c.width  = W;
-            c.height = H;
-        });
-    }
-    resize();
-    window.addEventListener('resize', resize);
+            /* Aurora canvas */
+            '#forge-aurora {',
+            '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
+            '  pointer-events:none; z-index:0;',
+            '}',
 
-    // ── 4. Cursor tracking ───────────────────────────────────────────────
-    var mx = -200, my = -200, rx = -200, ry = -200;
-    var pts = [];
+            /* Particle canvas */
+            '#forge-particles {',
+            '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
+            '  pointer-events:none; z-index:1;',
+            '}',
 
-    document.addEventListener('mousemove', function(e) {
-        mx = e.clientX; my = e.clientY;
-        dot.style.left = mx + 'px';
-        dot.style.top  = my + 'px';
-        pts.push({ x: mx, y: my });
-        if (pts.length > 26) pts.shift();
-    });
+            /* Comet trail canvas */
+            '#forge-trail {',
+            '  position:fixed; top:0; left:0; width:100vw; height:100vh;',
+            '  pointer-events:none; z-index:2;',
+            '}',
 
-    document.addEventListener('mousedown', function() {
-        dot.classList.add('clicked');
-        ring.classList.add('clicked');
-    });
-    document.addEventListener('mouseup', function() {
-        dot.classList.remove('clicked');
-        ring.classList.remove('clicked');
-    });
+            /* Cursor dot — extreme z-index so it appears above all Gradio UI */
+            '#forge-dot {',
+            '  position:fixed; top:0; left:0;',
+            '  width:9px; height:9px; border-radius:50%;',
+            '  background:#00f5ff;',
+            '  box-shadow: 0 0 12px #00f5ff, 0 0 28px rgba(0,245,255,0.5);',
+            '  pointer-events:none; z-index:2147483646;',
+            '  transform:translate(-50%,-50%);',
+            '  transition:transform 0.07s, background 0.2s;',
+            '}',
+            '#forge-dot.clicked {',
+            '  transform:translate(-50%,-50%) scale(2);',
+            '  background:#bf00ff;',
+            '  box-shadow: 0 0 20px #bf00ff, 0 0 40px rgba(191,0,255,0.5);',
+            '}',
+
+            /* Cursor ring */
+            '#forge-ring {',
+            '  position:fixed; top:0; left:0;',
+            '  width:36px; height:36px; border-radius:50%;',
+            '  border:1.5px solid rgba(0,245,255,0.5);',
+            '  pointer-events:none; z-index:2147483645;',
+            '  transform:translate(-50%,-50%);',
+            '  transition:width 0.22s, height 0.22s, border-color 0.25s;',
+            '}',
+            '#forge-ring.clicked {',
+            '  width:54px; height:54px;',
+            '  border-color:rgba(191,0,255,0.6);',
+            '}',
+
+            /* Make Gradio background transparent so aurora shows through */
+            'body, html { background:#000 !important; }',
+            '.gradio-container, .gradio-container > div,',
+            '.app, #root {',
+            '  background:transparent !important;',
+            '}',
+        ].join('\n');
+        document.head.appendChild(style);
+
+        // ── 2. Create canvas + cursor elements, append to body ─────────────
+        function makeCanvas(id) {
+            var c = document.createElement('canvas');
+            c.id  = id;
+            document.body.appendChild(c);
+            return c;
+        }
+        function makeDiv(id) {
+            var d = document.createElement('div');
+            d.id  = id;
+            document.body.appendChild(d);
+            return d;
+        }
+
+        var aCV   = makeCanvas('forge-aurora');
+        var pCV   = makeCanvas('forge-particles');
+        var tCV   = makeCanvas('forge-trail');
+        var dot   = makeDiv('forge-dot');
+        var ring  = makeDiv('forge-ring');
+
+        var aCtx  = aCV.getContext('2d');
+        var pCtx  = pCV.getContext('2d');
+        var tCtx  = tCV.getContext('2d');
+
+        // ── 3. Resize all canvases to viewport ─────────────────────────────
+        function resize() {
+            var W = window.innerWidth, H = window.innerHeight;
+            [aCV, pCV, tCV].forEach(function(c) {
+                c.width  = W;
+                c.height = H;
+            });
+        }
+        resize();
+        window.addEventListener('resize', resize, { passive: true });
+
+        // ── 4. Cursor tracking — start at screen centre so it's visible ────
+        var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+        var rx = mx, ry = my;
+        dot.style.left  = mx + 'px';
+        dot.style.top   = my + 'px';
+        ring.style.left = rx + 'px';
+        ring.style.top  = ry + 'px';
+        var pts = [];
+
+        window.addEventListener('mousemove', function(e) {
+            mx = e.clientX; my = e.clientY;
+            dot.style.left = mx + 'px';
+            dot.style.top  = my + 'px';
+            pts.push({ x: mx, y: my });
+            if (pts.length > 26) pts.shift();
+        }, { passive: true });
+
+        window.addEventListener('mousedown', function() {
+            dot.classList.add('clicked');
+            ring.classList.add('clicked');
+        }, { passive: true });
+        window.addEventListener('mouseup', function() {
+            dot.classList.remove('clicked');
+            ring.classList.remove('clicked');
+        }, { passive: true });
 
     // ── 5. Aurora blobs data ─────────────────────────────────────────────
     var blobs = [
@@ -822,6 +853,15 @@ FORGE_JS_HTML = """
         requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
+
+    } // end init()
+
+    // Run init now if body is ready, otherwise wait for DOMContentLoaded
+    if (document.body) {
+        init();
+    } else {
+        document.addEventListener('DOMContentLoaded', init);
+    }
 
 })();
 </script>
@@ -1422,6 +1462,7 @@ with gr.Blocks(
                             choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
                             value="All Tasks (Random)",
                             label="Investigation Protocol",
+                            elem_id="task-dropdown",
                         )
                     with gr.Column(scale=1):
                         diff_sl = gr.Slider(
