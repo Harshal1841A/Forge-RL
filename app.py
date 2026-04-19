@@ -982,6 +982,135 @@ button.secondary:hover {
     transform: scale(1.02) !important;
     box-shadow: 0 0 12px rgba(191,0,255,0.15) !important;
 }
+
+/* ═══ NEON + AURORA DROPDOWN ═══ */
+/* Wrapper box — neon cyan animated border */
+#forge-task-dd .wrap {
+    background: rgba(0,0,0,0.65) !important;
+    border: 1px solid rgba(0,245,255,0.30) !important;
+    border-radius: 12px !important;
+    box-shadow:
+        0 0 12px rgba(0,245,255,0.10),
+        inset 0 0 8px rgba(0,245,255,0.04) !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
+    position: relative !important;
+}
+#forge-task-dd .wrap::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 13px;
+    background: linear-gradient(110deg, #00f5ff, #bf00ff, #ff006e, #00f5ff);
+    background-size: 300% 300%;
+    animation: ddBorderSweep 5s linear infinite;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    z-index: -1;
+    pointer-events: none;
+}
+@keyframes ddBorderSweep {
+    0%   { background-position: 0%   50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0%   50%; }
+}
+#forge-task-dd .wrap:hover { border-color: rgba(0,245,255,0.55) !important; box-shadow: 0 0 22px rgba(0,245,255,0.22), inset 0 0 12px rgba(0,245,255,0.07) !important; }
+#forge-task-dd .wrap:hover::before { opacity: 0.45; }
+#forge-task-dd .wrap:focus-within { border-color: rgba(0,245,255,0.80) !important; box-shadow: 0 0 30px rgba(0,245,255,0.32), 0 0 56px rgba(191,0,255,0.14), inset 0 0 14px rgba(0,245,255,0.08) !important; }
+#forge-task-dd .wrap:focus-within::before { opacity: 0.80; }
+
+/* Selected value text */
+#forge-task-dd .single-select,
+#forge-task-dd .wrap-inner input,
+#forge-task-dd .value-string {
+    color: var(--c-cyan) !important;
+    text-shadow: 0 0 8px rgba(0,245,255,0.50) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-ui) !important;
+    caret-color: var(--c-cyan) !important;
+}
+
+/* Chevron / dropdown arrow */
+#forge-task-dd .dropdown-arrow,
+#forge-task-dd .icon {
+    color: var(--c-cyan) !important;
+    filter: drop-shadow(0 0 5px rgba(0,245,255,0.75)) !important;
+    transition: transform 0.3s ease, filter 0.3s ease !important;
+}
+#forge-task-dd .wrap:focus-within .dropdown-arrow,
+#forge-task-dd .wrap:focus-within .icon {
+    transform: rotate(180deg) !important;
+    filter: drop-shadow(0 0 8px rgba(191,0,255,0.9)) !important;
+}
+
+/* Popup options list — dark glass + aurora radial layers */
+#forge-task-dd .options,
+#forge-task-dd ul[role="listbox"] {
+    background: rgba(3,5,18,0.96) !important;
+    border: 1px solid rgba(0,245,255,0.30) !important;
+    border-radius: 14px !important;
+    box-shadow:
+        0 12px 48px rgba(0,0,0,0.75),
+        0 0 28px rgba(0,245,255,0.14),
+        0 0 56px rgba(191,0,255,0.08) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    margin-top: 6px !important;
+    overflow: hidden !important;
+    padding: 6px !important;
+    position: relative;
+    /* Aurora radial overlays */
+    background-image:
+        radial-gradient(ellipse 70% 40% at 15% 15%, rgba(0,245,255,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 85% 85%, rgba(191,0,255,0.06) 0%, transparent 60%) !important;
+}
+/* Top aurora shimmer line on popup */
+#forge-task-dd .options::before,
+#forge-task-dd ul[role="listbox"]::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--c-cyan), var(--c-purple), transparent);
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* Individual option items */
+#forge-task-dd .options .item,
+#forge-task-dd ul[role="listbox"] li {
+    color: var(--txt) !important;
+    padding: 9px 14px !important;
+    border-radius: 9px !important;
+    margin: 2px 0 !important;
+    font-family: var(--font-ui) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+    position: relative !important;
+}
+/* Hover state — neon cyan */
+#forge-task-dd .options .item:hover,
+#forge-task-dd ul[role="listbox"] li:hover {
+    background: rgba(0,245,255,0.10) !important;
+    border-color: rgba(0,245,255,0.28) !important;
+    color: var(--c-cyan) !important;
+    text-shadow: 0 0 8px rgba(0,245,255,0.45) !important;
+    box-shadow: 0 0 14px rgba(0,245,255,0.14), inset 0 0 8px rgba(0,245,255,0.05) !important;
+    padding-left: 20px !important;
+}
+/* Selected / active state — neon purple tint */
+#forge-task-dd .options .item.selected,
+#forge-task-dd ul[role="listbox"] li[aria-selected="true"],
+#forge-task-dd .options .item.active {
+    background: rgba(0,245,255,0.13) !important;
+    border-color: rgba(0,245,255,0.38) !important;
+    color: var(--c-cyan) !important;
+    text-shadow: 0 0 10px rgba(0,245,255,0.55) !important;
+    box-shadow: inset 0 0 14px rgba(0,245,255,0.08), 0 0 12px rgba(0,245,255,0.12) !important;
+    font-weight: 700 !important;
+}
 """
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1586,7 +1715,8 @@ with gr.Blocks(
                 with gr.Row():
                     task_dd = gr.Dropdown(
                         choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
-                        value="All Tasks (Random)", label="Protocol"
+                        value="All Tasks (Random)", label="Protocol",
+                        elem_id="forge-task-dd"
                     )
                     diff_sl = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Depth")
                 with gr.Row():
