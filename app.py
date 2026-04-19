@@ -982,6 +982,71 @@ button.secondary:hover {
     transform: scale(1.02) !important;
     box-shadow: 0 0 12px rgba(191,0,255,0.15) !important;
 }
+
+/* ── Aurora wrapper for controls panel ───────────────────────────── */
+.aurora-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+}
+.aurora-wrap::before,
+.aurora-wrap::after {
+    content: "";
+    position: absolute;
+    inset: -35%;
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(44px);
+    opacity: .42;
+}
+.aurora-wrap::before {
+    background:
+      radial-gradient(circle at 25% 35%, rgba(0,245,255,.28), transparent 38%),
+      radial-gradient(circle at 75% 65%, rgba(191,0,255,.24), transparent 42%);
+    animation: auroraMove1 12s ease-in-out infinite alternate;
+}
+.aurora-wrap::after {
+    background:
+      radial-gradient(circle at 70% 30%, rgba(255,0,110,.18), transparent 36%),
+      radial-gradient(circle at 30% 80%, rgba(0,245,255,.16), transparent 40%);
+    animation: auroraMove2 16s ease-in-out infinite alternate;
+}
+@keyframes auroraMove1 {
+    0%   { transform: translate(-6%, -4%) rotate(0deg) scale(1); }
+    100% { transform: translate(6%, 4%) rotate(18deg) scale(1.08); }
+}
+@keyframes auroraMove2 {
+    0%   { transform: translate(5%, -3%) rotate(0deg) scale(1); }
+    100% { transform: translate(-5%, 3%) rotate(-16deg) scale(1.06); }
+}
+
+/* Ensure children render above aurora glow */
+.aurora-wrap > * { position: relative; z-index: 1; }
+
+/* ── Neon dropdown target ───────────────────────────────────────── */
+#task_dd [data-testid="dropdown"] {
+    background: rgba(0,0,0,0.45) !important;
+    border: 1px solid rgba(0,245,255,0.35) !important;
+    border-radius: 12px !important;
+    box-shadow:
+      0 0 0 1px rgba(0,245,255,0.08) inset,
+      0 0 18px rgba(0,245,255,0.18) !important;
+    transition: all .25s ease !important;
+}
+#task_dd [data-testid="dropdown"]:hover {
+    border-color: rgba(191,0,245,0.65) !important;
+    box-shadow:
+      0 0 0 1px rgba(191,0,245,0.18) inset,
+      0 0 22px rgba(191,0,245,0.30) !important;
+}
+#task_dd ul.options {
+    background: rgba(5,8,18,0.96) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 10px !important;
+}
+#task_dd ul.options li:hover {
+    background: linear-gradient(90deg, rgba(0,245,255,0.16), rgba(191,0,255,0.16)) !important;
+}
 """
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1582,11 +1647,12 @@ with gr.Blocks(
         with gr.Column(scale=6):
             with gr.Column(elem_classes=["glass-panel"]):
                 center_panel = gr.HTML(_center_idle())
-            with gr.Column(elem_classes=["controls-panel"]):
+            with gr.Column(elem_classes=["controls-panel", "aurora-wrap"]):
                 with gr.Row():
                     task_dd = gr.Dropdown(
                         choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
-                        value="All Tasks (Random)", label="Protocol"
+                        value="All Tasks (Random)", label="Protocol",
+                        elem_id="task_dd"
                     )
                     diff_sl = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Depth")
                 with gr.Row():
