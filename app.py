@@ -51,6 +51,8 @@ TASK_META = {
     "sec_fraud": {"icon": "💰", "code": "SEC_FRAUD"},
 }
 
+EXAMPLE_CLAIMS = [[k, 1] for k in list(TASK_META.keys())[:5]]
+
 ACTION_ICONS = {
     "query_source": "🔍", "trace_origin": "🕵️", "cross_reference": "📖",
     "request_context": "📄", "entity_link": "🔗", "temporal_audit": "⏱️",
@@ -259,7 +261,7 @@ def _topnav(auto=False) -> str:
             f'<div style="font-size:11px;color:var(--c-cyan);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Hardened Enterprise Core</div></div>'
             f'</div>{pill}</div>')
 
-def _statusbar(status="IDLE", bw="0.0K/S") -> str:
+def _statusbar_html(status="IDLE", bw="0.0K/S") -> str:
     c = "var(--c-green)" if status in ("OPTIMAL","ACTIVE") else "var(--c-pink)" if status=="ALERT" else "var(--txt2)"
     return (f'<div class="forge-statusbar">'
             f'<span>NET: <span style="color:{c};font-weight:700;text-shadow:0 0 8px {c};">{status}</span></span>'
@@ -411,22 +413,35 @@ FORGE_CSS = """
 
 html, body { background: #000 !important; margin: 0; padding: 0; overflow-x: hidden; }
 
-/* ═══ AURORA BACKGROUND (layered gradients behind WebGL) ═══ */
+/* ═══ NEON GRID BACKGROUND ═══ */
 body::before {
     content: ''; position: fixed; inset: 0; z-index: -2;
     background:
-        radial-gradient(ellipse 80% 60% at 20% 30%, rgba(0, 245, 255, 0.10) 0%, transparent 50%),
-        radial-gradient(ellipse 70% 50% at 80% 20%, rgba(191, 0, 255, 0.10) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 80% at 50% 90%, rgba(255, 0, 110, 0.08) 0%, transparent 60%),
-        radial-gradient(ellipse 100% 50% at 90% 70%, rgba(0, 255, 135, 0.06) 0%, transparent 50%),
-        #000;
-    animation: auroraShift 24s ease-in-out infinite alternate;
+        linear-gradient(rgba(0, 245, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 245, 255, 0.04) 1px, transparent 1px),
+        #040406;
+    background-size: 40px 40px;
     pointer-events: none;
 }
-@keyframes auroraShift {
-    0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 100% 50%, 0 0; }
-    50%  { background-position: 30% 20%, 70% 30%, 40% 80%, 80% 40%, 0 0; }
-    100% { background-position: 10% 40%, 90% 10%, 60% 100%, 70% 60%, 0 0; }
+
+/* Universal subtle neon borders */
+.gradio-container .block {
+    border: 1px solid rgba(0, 245, 255, 0.15) !important;
+    box-shadow: 0 0 5px rgba(0, 245, 255, 0.05) !important;
+    border-radius: var(--radius);
+}
+
+.aurora-wrap {
+    position: relative;
+    padding: 1px;
+    border-radius: var(--radius);
+    background: transparent;
+    border: 1px solid rgba(0, 245, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 245, 255, 0.08), inset 0 0 8px rgba(0, 245, 255, 0.05);
+}
+
+.aurora-wrap::before {
+    content: none;
 }
 
 /* ═══ CURSOR SYSTEM (hidden on mobile, forced visible on desktop) ═══ */
@@ -592,45 +607,38 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
-/* ═══ GLASS PANELS (Aurora Hover) ═══ */
+/* ═══ NEON PANELS ═══ */
 .glass-panel {
-    background: var(--glass) !important;
-    border: 1px solid var(--border) !important;
+    background: rgba(0,0,0,0.7) !important;
+    border: 1px solid rgba(0,245,255,0.15) !important;
     border-radius: var(--radius) !important;
-    backdrop-filter: blur(22px) saturate(170%) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(170%) !important;
-    transition: border-color 0.35s ease, box-shadow 0.4s ease, transform 0.5s cubic-bezier(0.16,1,0.3,1) !important;
+    box-shadow: 0 0 6px rgba(0,245,255,0.05) !important;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease !important;
     position: relative;
-    overflow: hidden !important;
 }
 .glass-panel::before {
-    content: ''; position: absolute; inset: 0; border-radius: inherit;
-    background: linear-gradient(135deg, transparent 40%, rgba(0,245,255,0.04) 50%, transparent 60%);
-    opacity: 0; transition: opacity 0.5s ease;
-    pointer-events: none;
+    content: none;
 }
 .glass-panel:hover {
-    border-color: rgba(0, 245, 255, 0.22) !important;
+    border-color: rgba(0, 245, 255, 0.3) !important;
     box-shadow:
-        0 12px 44px rgba(0,0,0,0.5),
-        0 0 30px rgba(0, 245, 255, 0.08),
-        inset 0 0 0 1px rgba(0, 245, 255, 0.08) !important;
-    transform: translateY(-4px) !important;
+        0 4px 15px rgba(0,0,0,0.8),
+        0 0 15px rgba(0, 245, 255, 0.1),
+        inset 0 0 8px rgba(0, 245, 255, 0.05) !important;
 }
 .glass-panel:hover::before { opacity: 1; }
 
 .controls-panel {
-    background: rgba(0,0,0,0.55) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: rgba(0,0,0,0.45) !important;
+    border: 1px solid rgba(0,245,255,0.15) !important;
     border-radius: var(--radius) !important;
-    padding: 20px;
-    margin-top: 16px;
-    transition: all 0.35s ease !important;
-    position: relative;
+    padding: 24px !important;
+    transition: all 0.4s ease !important;
+    box-shadow: 0 0 6px rgba(0,245,255,0.05) !important;
 }
 .controls-panel:hover {
-    border-color: rgba(191, 0, 255, 0.28) !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 24px rgba(191,0,255,0.1) !important;
+    border-color: rgba(0, 245, 255, 0.25) !important;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6), 0 0 12px rgba(0,245,255,0.08) !important;
 }
 
 .scanner-container {
@@ -1024,29 +1032,35 @@ button.secondary:hover {
 .aurora-wrap > * { position: relative; z-index: 1; }
 
 /* ── Neon dropdown target ───────────────────────────────────────── */
-#task_dd [data-testid="dropdown"] {
-    background: rgba(0,0,0,0.45) !important;
-    border: 1px solid rgba(0,245,255,0.35) !important;
-    border-radius: 12px !important;
-    box-shadow:
-      0 0 0 1px rgba(0,245,255,0.08) inset,
-      0 0 18px rgba(0,245,255,0.18) !important;
-    transition: all .25s ease !important;
+#task_dd {
+    background: transparent !important;
+    border: none !important;
 }
-#task_dd [data-testid="dropdown"]:hover {
-    border-color: rgba(191,0,245,0.65) !important;
-    box-shadow:
-      0 0 0 1px rgba(191,0,245,0.18) inset,
-      0 0 22px rgba(191,0,245,0.30) !important;
+#task_dd > div, #task_dd [data-testid="dropdown"] {
+    background: rgba(0,0,0,0.85) !important;
+    border: 1px solid rgba(0, 245, 255, 0.4) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 8px rgba(0,245,255,0.15), inset 0 0 6px rgba(0,245,255,0.1) !important;
+    transition: all 0.3s ease !important;
+}
+#task_dd > div:hover, #task_dd [data-testid="dropdown"]:hover {
+    border-color: rgba(255, 0, 110, 0.4) !important;
+    box-shadow: 0 0 12px rgba(255,0,110,0.2), inset 0 0 8px rgba(255,0,110,0.1) !important;
+}
+#task_dd input, #task_dd span, #task_dd svg, #task_dd label {
+    color: #ffffff !important;
+    opacity: 1 !important;
+    font-weight: 500 !important;
+    text-shadow: 0 0 4px rgba(0,245,255,0.4) !important;
 }
 #task_dd ul.options {
-    background: rgba(5,8,18,0.96) !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
-    border-radius: 10px !important;
+    background: rgba(5,8,18,0.98) !important;
+    border: 1px solid rgba(0, 245, 255, 0.3) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 10px rgba(0,245,255,0.15) !important;
 }
-#task_dd ul.options li:hover {
-    background: linear-gradient(90deg, rgba(0,245,255,0.16), rgba(191,0,255,0.16)) !important;
-}
+#task_dd ul.options li, #task_dd ul.options li span { color: #fff !important; text-shadow: none !important; }
+#task_dd ul.options li:hover { background: rgba(0,245,255,0.15) !important; }
 """
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1478,7 +1492,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
         yield (_left_active(logs),
                _center_active(claim, task_id, vir, dom, "Waking API…"),
                _right_idle(),
-               _statusbar("ACTIVE", f"{random.uniform(0.8, 2.0):.1f}K/S"),
+               _statusbar_html("ACTIVE", f"{random.uniform(0.8, 2.0):.1f}K/S"),
                gr.update(interactive=not auto_mode),
                gr.update(value=auto_btn_label, interactive=True),
                _graph_text(env),
@@ -1536,7 +1550,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
                        _center_active(claim, task_id, vir, dom, "Analysing…", cov, div, bud),
                        _right_active(last.get("think",""), last.get("predict",""),
                                      getattr(agent,"_fsm_state",""), env.steps, max_steps, cov, con),
-                       _statusbar("ACTIVE", f"{random.uniform(1,3.5):.1f}K/S"),
+                       _statusbar_html("ACTIVE", f"{random.uniform(1,3.5):.1f}K/S"),
                        gr.update(interactive=not auto_mode),
                        gr.update(value=auto_btn_label, interactive=True),
                        _graph_text(env),
@@ -1556,7 +1570,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
         yield (_left_active(logs[-LOG_DISPLAY_COUNT:]),
                _center_active(claim, task_id, vir, dom, "FINAL", cov, div, 0),
                _right_done(verdict, true_label, correct, env.steps, final_reward, conf),
-               _statusbar("OPTIMAL" if correct else "ALERT"),
+               _statusbar_html("OPTIMAL" if correct else "ALERT"),
                gr.update(interactive=True),
                gr.update(value="♾️ Autonomous Mode" if not auto_mode else auto_btn_label, interactive=True),
                _graph_text(env),
@@ -1568,7 +1582,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
         yield (_left_idle(),
                _center_active("SYSTEM FAILURE", "err", 0, "err", "ERROR"),
                _right_idle(),
-               _statusbar("ERROR"),
+               _statusbar_html("ERROR"),
                gr.update(interactive=True),
                gr.update(value="♾️ Autonomous Mode", interactive=True),
                f"Error: {str(e)}",
@@ -1591,7 +1605,7 @@ async def toggle_autonomous():
     if FORGE_CORE.running_event.is_set():
         FORGE_CORE.running_event.clear()  # Signal stop
         yield (_left_idle(), _center_idle(), _right_idle(),
-               _statusbar("IDLE"),
+               _statusbar_html("IDLE"),
                gr.update(interactive=True),
                gr.update(value="♾️ Autonomous Mode", interactive=True),
                _graph_text(None),
@@ -1618,7 +1632,7 @@ async def toggle_autonomous():
     # Loop ended naturally or via stop — reset UI
     FORGE_CORE.running_event.clear()
     yield (_left_idle(), _center_idle(), _right_idle(),
-           _statusbar("IDLE"),
+           _statusbar_html("IDLE"),
            gr.update(interactive=True),
            gr.update(value="♾️ Autonomous Mode", interactive=True),
            _graph_text(None),
@@ -1644,23 +1658,25 @@ with gr.Blocks(
     with gr.Row():
         with gr.Column(scale=3, elem_classes=["glass-panel"]):
             left_panel = gr.HTML(_left_idle())
-        with gr.Column(scale=6):
+        with gr.Column(scale=7, elem_classes=["aurora-wrap"]):
             with gr.Column(elem_classes=["glass-panel"]):
                 center_panel = gr.HTML(_center_idle())
-            with gr.Column(elem_classes=["controls-panel", "aurora-wrap"]):
+            with gr.Column(elem_classes=["controls-panel"]):
                 with gr.Row():
-                    task_dd = gr.Dropdown(
-                        choices=["All Tasks (Random)"] + list(TASK_REGISTRY.keys()),
-                        value="All Tasks (Random)", label="Protocol",
-                        elem_id="task_dd"
-                    )
-                    diff_sl = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Depth")
+                    with gr.Column(scale=7):
+                        task_dd = gr.Dropdown(
+                            choices=["All Tasks (Random)"] + list(TASK_META.keys()),
+                            value="All Tasks (Random)", label="Investigation Protocol",
+                            elem_id="task_dd"
+                        )
+                    with gr.Column(scale=3):
+                        diff_sl = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Depth Level")
                 with gr.Row():
-                    start_btn = gr.Button("▶  Launch Deep Analysis", variant="primary")
-                    auto_btn = gr.Button("♾️ Autonomous Mode", variant="secondary")
-                gr.Examples(examples=EXAMPLES, inputs=[task_dd, diff_sl],
-                            label="⚡ Quick start — click any example")
-                statusbar = gr.HTML(_statusbar("IDLE"))
+                    start_btn = gr.Button("▶  Launch Deep Analysis", variant="primary", scale=2)
+                    auto_btn = gr.Button("♾️ Autonomous Mode", variant="secondary", scale=1)
+                gr.Examples(examples=EXAMPLE_CLAIMS, inputs=[task_dd, diff_sl],
+                            label="⚡ Investigation Presets — Quick start")
+                statusbar = gr.HTML(_statusbar_html("IDLE"))
         with gr.Column(scale=3, elem_classes=["glass-panel"]):
             right_panel = gr.HTML(_right_idle())
 
