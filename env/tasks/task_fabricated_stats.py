@@ -6,7 +6,7 @@ Tactics: fabricate_statistic, misattribute_quote, cherry_pick_study
 from __future__ import annotations
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
 
@@ -143,7 +143,7 @@ class FabricatedStatsTask(BaseTask):
             text=template["text"],
             source_url=f"https://{domain}/article-{rng.randint(1000,9999)}",
             domain=domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 30)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 30)),
             virality_score=rng.uniform(0.6, 0.95),
             trust_score=trust_score,
         )
@@ -169,7 +169,7 @@ class FabricatedStatsTask(BaseTask):
             text=auth_text,
             source_url=f"https://{template['real_domain']}/research/",
             domain=template["real_domain"],
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(60, 365)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(60, 365)),
             virality_score=0.1,
             trust_score=0.95,
         )
@@ -188,7 +188,7 @@ class FabricatedStatsTask(BaseTask):
                 text=f"FACT CHECK FALSE: {template['correct_stat']}",
                 source_url=f"https://{deb_domain}/fact-check/{rng.randint(10000,99999)}",
                 domain=deb_domain,
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 10)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 10)),
                 virality_score=0.3,
                 trust_score=0.90,
             )
@@ -211,7 +211,7 @@ class FabricatedStatsTask(BaseTask):
                 text=f"Partial real study from {amp_domain} being misrepresented.",
                 source_url=f"https://{amp_domain}/study-{rng.randint(100,999)}",
                 domain=amp_domain,
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(180, 730)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(180, 730)),
                 virality_score=rng.uniform(0.2, 0.5),
                 trust_score=0.8,
             )
@@ -234,7 +234,7 @@ class FabricatedStatsTask(BaseTask):
                 ),
                 source_url=f"https://{template['real_domain']}/retractions/notice-{rng.randint(100,999)}",
                 domain=template["real_domain"],
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(5, 30)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(5, 30)),
                 virality_score=0.03,
                 trust_score=0.97,
             )

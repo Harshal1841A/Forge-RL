@@ -7,7 +7,7 @@ Label: satire
 from __future__ import annotations
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
 
@@ -104,7 +104,7 @@ class SatiricalClaimTask(BaseTask):
             text=root_text,
             source_url=f"https://{fake_outrage_domain}/post/{rng.randint(1000,9999)}",
             domain=fake_outrage_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 10)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 10)),
             virality_score=rng.uniform(0.7, 0.95),
             trust_score=0.6 if is_true else 0.1,
         )
@@ -125,7 +125,7 @@ class SatiricalClaimTask(BaseTask):
             text=template["text"],
             source_url=f"https://{template['authoritative_domain']}/article-{rng.randint(100,999)}",
             domain=template["authoritative_domain"],
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(20, 60)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(20, 60)),
             virality_score=0.9,
             trust_score=0.95 if is_true else 0.8,
         )
@@ -148,7 +148,7 @@ class SatiricalClaimTask(BaseTask):
                 text=f"More proof they are doing this: {template['text']}",
                 source_url=f"https://{amp_domain}/thread-{rng.randint(100,999)}",
                 domain=amp_domain,
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 5)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 5)),
                 virality_score=rng.uniform(0.4, 0.9),
                 trust_score=0.2,
             )
@@ -172,7 +172,7 @@ class SatiricalClaimTask(BaseTask):
                 ),
                 source_url=f"https://{template['authoritative_domain']}/about/satire-policy",
                 domain=template["authoritative_domain"],
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(30, 90)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(30, 90)),
                 virality_score=0.02,
                 trust_score=0.95,
             )

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
@@ -134,7 +134,7 @@ class SECFraudTask(BaseTask):
             ),
             source_url=f"https://{pub_domain}/press-releases/{seed}",
             domain=pub_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 30)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 30)),
             author=f"CEO of {scenario['company']}",
             virality_score=rng.uniform(0.5, 0.85),
             trust_score=0.9 if is_true else 0.6,
@@ -169,7 +169,7 @@ class SECFraudTask(BaseTask):
                 f"?action=getcompany&CIK={scenario['ticker']}&type={scenario['filing_type']}"
             ),
             domain="sec.gov",
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(30, 90)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(30, 90)),
             virality_score=0.05,
             trust_score=0.99,   # SEC filings are authoritative
             metadata={"filing_type": scenario["filing_type"]},
@@ -199,7 +199,7 @@ class SECFraudTask(BaseTask):
             text=media_text,
             source_url=f"https://{media_domain}/article/{scenario['ticker']}/analysis-{seed}",
             domain=media_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 7)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 7)),
             virality_score=rng.uniform(0.4, 0.75),
             trust_score=0.80,
         )
@@ -221,7 +221,7 @@ class SECFraudTask(BaseTask):
                 ),
                 source_url=f"https://{reg_domain}/news/{scenario['ticker']}-inquiry-{seed}",
                 domain=reg_domain,
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(7, 45)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(7, 45)),
                 virality_score=0.3,
                 trust_score=0.97,
             )
@@ -245,7 +245,7 @@ class SECFraudTask(BaseTask):
                 ),
                 source_url=f"https://whistleblower-network.org/case/{scenario['ticker']}-{seed}",
                 domain="whistleblower-network.org",
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(3, 20)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(3, 20)),
                 virality_score=0.08,
                 trust_score=0.75,
             )
@@ -268,7 +268,7 @@ class SECFraudTask(BaseTask):
                     ),
                     source_url=f"https://courtlistener.com/docket/{scenario['ticker']}/{seed}",
                     domain="courtlistener.com",
-                    timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 10)),
+                    timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 10)),
                     virality_score=0.02,
                     trust_score=0.96,
                 )
