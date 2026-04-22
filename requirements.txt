@@ -1,11 +1,16 @@
-# FORGE — MisInfo Forensics RL Environment
-# All packages are free/open-source
+# FORGE v2 — Unified Requirements
+# Covers both original FORGE v1 and FORGE-MA v9.0 extension
 
 # ── Core ──────────────────────────────────────────────────────────────────────
 gymnasium>=0.29.1
 numpy>=1.24.0
 torch>=2.1.0                    # free, open-source
 sentence-transformers>=2.6.0    # free, runs locally (all-MiniLM-L6-v2)
+
+# ── FORGE-MA Adversarial RL ───────────────────────────────────────────────────
+torch-geometric>=2.5.0          # GIN / HAE models
+trl>=0.7.0                      # PPO trainer
+stix2>=3.0.0                    # DISARM TTP registry
 
 # ── Server ────────────────────────────────────────────────────────────────────
 fastapi>=0.111.0
@@ -17,16 +22,7 @@ duckduckgo-search>=5.0.0        # Completely free/keyless fact check search
 
 # ── LLM (OpenEnv Strict Client) ──────────────────────────────────────────────
 openai>=1.14.0                  # required client for evaluation
-tenacity>=8.2.0                 # exponential backoff for Groq 429 rate limits (v2.0)
-# huggingface_hub>=0.23.0       # optional HF Inference API fallback
-
-# ── Optional: GNN policy (install separately if GPU available) ────────────────
-# torch-geometric>=2.5.0        # pip install torch-geometric
-# torch-scatter                 # required by torch-geometric
-# torch-sparse                  # required by torch-geometric
-
-# ── Optional: Distributed training ────────────────────────────────────────────
-# ray[rllib]>=2.9.0             # pip install "ray[rllib]"
+tenacity>=8.2.0                 # exponential backoff for Groq 429 rate limits
 
 # ── Dev / Evaluation ──────────────────────────────────────────────────────────
 pytest>=8.0.0

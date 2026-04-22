@@ -11,12 +11,41 @@ from dotenv import load_dotenv
 # Load .env file automatically if it exists (for local development)
 load_dotenv()
 
-# ─── LLM (OpenEnv / Groq free tier API) ────────────────────────────────────────
-HF_TOKEN: str = os.getenv("HF_TOKEN", "")                   # free at huggingface.co
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")       # free at console.groq.com
-API_BASE_URL: str = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-MODEL_NAME: str = os.getenv("MODEL_NAME", "llama3-8b-8192")
+# ─── LLM — Multi-Provider (no shared model bias) ──────────────────────────────
+# Groq  → Forensic Auditor  (llama3-70b, free at console.groq.com)
+HF_TOKEN: str          = os.getenv("HF_TOKEN", "")
+OPENAI_API_KEY: str    = os.getenv("OPENAI_API_KEY", "")          # Groq key
+OPENAI_API_KEY_AUDITOR: str = os.getenv("OPENAI_API_KEY_AUDITOR", OPENAI_API_KEY)
+API_BASE_URL: str      = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+MODEL_NAME: str        = os.getenv("MODEL_NAME", "llama3-70b-8192")
+
+# Cerebras → Context Historian (llama3.1-70b, free at cloud.cerebras.ai)
+CEREBRAS_API_KEY: str  = os.getenv("CEREBRAS_API_KEY", OPENAI_API_KEY)
+CEREBRAS_BASE_URL: str = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
+CEREBRAS_MODEL: str    = os.getenv("CEREBRAS_MODEL", "llama3.1-70b")
+
+# Mistral → Narrative Critic (mistral-small-latest, free at console.mistral.ai)
+MISTRAL_API_KEY: str   = os.getenv("MISTRAL_API_KEY", OPENAI_API_KEY)
+MISTRAL_BASE_URL: str  = os.getenv("MISTRAL_BASE_URL", "https://api.mistral.ai/v1")
+MISTRAL_MODEL: str     = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+
+# OpenRouter → NegotiatedSearch agents (free models, free at openrouter.ai)
+OPENROUTER_API_KEY: str  = os.getenv("OPENROUTER_API_KEY", OPENAI_API_KEY)
+OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+OPENROUTER_MODEL: str    = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3-8b-instruct:free")
+
+# Per-agent provider routing
+AGENT_AUDITOR_PROVIDER: str    = os.getenv("AGENT_AUDITOR_PROVIDER", "groq")
+AGENT_HISTORIAN_PROVIDER: str  = os.getenv("AGENT_HISTORIAN_PROVIDER", "cerebras")
+AGENT_CRITIC_PROVIDER: str     = os.getenv("AGENT_CRITIC_PROVIDER", "mistral")
+AGENT_NEGOTIATED_PROVIDER: str = os.getenv("AGENT_NEGOTIATED_PROVIDER", "openrouter")
+
+# Legacy aliases — kept for backward compat
+OPENAI_API_KEY_HISTORIAN: str = os.getenv("OPENAI_API_KEY_HISTORIAN", CEREBRAS_API_KEY)
+OPENAI_API_KEY_CRITIC: str    = os.getenv("OPENAI_API_KEY_CRITIC", MISTRAL_API_KEY)
+
 HF_EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"  # local, free
+
 
 # ─── Free External APIs ───────────────────────────────────────────────────────
 WIKIPEDIA_API_URL: str = "https://en.wikipedia.org/api/rest_v1"

@@ -149,7 +149,9 @@ class GeneratorAgent:
         """Update ELO after one bout."""
         expected_gen = self.elo / (self.elo + config.ELO_INITIAL)
         result = 0.0 if investigator_won else 1.0
-        self.elo += int(config.ELO_K_FACTOR * (result - expected_gen))
+        # LOW BUG 1 FIX: int() truncates small deltas (e.g. 0.8 → 0) so
+        # close ELO matches never register. round() correctly rounds 0.8 → 1.
+        self.elo += round(config.ELO_K_FACTOR * (result - expected_gen))
         if investigator_won:
             self.losses += 1
         else:

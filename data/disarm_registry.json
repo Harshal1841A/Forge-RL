@@ -1,0 +1,82 @@
+[
+  {
+    "primitive_id": "P1",
+    "primitive_name": "SOURCE_LAUNDER",
+    "disarm_technique_id": "T0013.001",
+    "disarm_technique_name": "Create fake or imposter news sites",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["trace_origin", "query_source"],
+    "fingerprint_key": "is_laundered_source"
+  },
+  {
+    "primitive_id": "P2",
+    "primitive_name": "TEMPORAL_SHIFT",
+    "disarm_technique_id": "T0046",
+    "disarm_technique_name": "Search engine optimization (backdating)",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["temporal_audit"],
+    "fingerprint_key": "timestamp_shifted"
+  },
+  {
+    "primitive_id": "P3",
+    "primitive_name": "ENTITY_SUBSTITUTE",
+    "disarm_technique_id": "T0075.001",
+    "disarm_technique_name": "Misattribute source",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["entity_link", "cross_reference"],
+    "fingerprint_key": "entity_substituted"
+  },
+  {
+    "primitive_id": "P4",
+    "primitive_name": "QUOTE_FABRICATE",
+    "disarm_technique_id": "T0006",
+    "disarm_technique_name": "Develop fabricated content",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["cross_reference", "quote_search"],
+    "fingerprint_key": "has_fabricated_quote"
+  },
+  {
+    "primitive_id": "P5",
+    "primitive_name": "CONTEXT_STRIP",
+    "disarm_technique_id": "T0019.001",
+    "disarm_technique_name": "Decontextualize",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["cross_reference", "context_expand"],
+    "fingerprint_key": "context_stripped"
+  },
+  {
+    "primitive_id": "P6",
+    "primitive_name": "CITATION_FORGE",
+    "disarm_technique_id": "T0016",
+    "disarm_technique_name": "Create fake research",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["entity_link", "cross_reference"],
+    "fingerprint_key": "has_forged_citation"
+  },
+  {
+    "primitive_id": "P7",
+    "primitive_name": "NETWORK_AMPLIFY",
+    "disarm_technique_id": "T0049",
+    "disarm_technique_name": "Flooding (coordinated amplification)",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["network_cluster", "trace_origin"],
+    "fingerprint_key": "is_amplified"
+  },
+  {
+    "primitive_id": "P8",
+    "primitive_name": "SATIRE_REFRAME",
+    "disarm_technique_id": "T0085.001",
+    "disarm_technique_name": "Use fringe news sources",
+    "disarm_framework_version": "2.0",
+    "stix2_object_type": "attack-pattern",
+    "detecting_tools": ["query_source", "cross_reference"],
+    "fingerprint_key": "satire_reframed"
+  }
+]

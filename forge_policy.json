@@ -1,18 +1,18 @@
 {
   "weights": {
-    "query_source": 0.05679682279264558,
-    "trace_origin": 0.05679682279264558,
-    "cross_reference": 0.0962915571655406,
-    "request_context": 0.09921325714132126,
-    "entity_link": 0.09921325714132126,
-    "temporal_audit": 0.09921325714132126,
-    "network_cluster": 0.06004315609906855,
-    "flag_manipulation": 0.0962915571655406,
-    "submit_verdict_real": 0.06004315609906855,
-    "submit_verdict_misinfo": 0.05679682279264558,
-    "submit_verdict_satire": 0.06004315609906855,
-    "submit_verdict_out_of_context": 0.09921325714132126,
-    "submit_verdict_fabricated": 0.06004315609906855
+    "query_source": 0.0604496666741662,
+    "trace_origin": 0.06705158873629409,
+    "cross_reference": 0.11494716890374351,
+    "request_context": 0.08357352347125827,
+    "entity_link": 0.10727719956624499,
+    "temporal_audit": 0.10727719956624499,
+    "network_cluster": 0.0404114661372892,
+    "flag_manipulation": 0.12760436899138,
+    "submit_verdict_real": 0.0404114661372892,
+    "submit_verdict_misinfo": 0.038226552868133104,
+    "submit_verdict_satire": 0.036473556335061795,
+    "submit_verdict_out_of_context": 0.10727719956624499,
+    "submit_verdict_fabricated": 0.0690180106785346
   },
-  "epsilon": 0.14850375
+  "epsilon": 0.14628731296828124
 }

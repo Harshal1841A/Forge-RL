@@ -4,14 +4,14 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "forge"
-version = "1.0.0"
-description = "FORGE: Forensic RL Graph Environment for Misinformation Investigation"
+version = "2.0.0"
+description = "FORGE v2 — Misinformation Forensics RL + FORGE-MA Adversarial Multi-Agent Extension"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "FORGE Team"}]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 keywords = ["reinforcement-learning", "misinformation", "fact-checking",
-            "openenv", "graph-neural-network", "trust-and-safety"]
+            "openenv", "graph-neural-network", "trust-and-safety", "adversarial-rl"]
 classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Intended Audience :: Science/Research",
@@ -29,7 +29,10 @@ dependencies = [
     "duckduckgo-search>=5.0.0",
     "openai>=1.14.0",
     "tenacity>=8.2.0",
-    "openenv-core>=0.2.0"
+    "openenv-core>=0.2.0",
+    "torch-geometric>=2.5.0",
+    "trl>=0.7.0",
+    "stix2>=3.0.0",
 ]
 
 [project.scripts]
@@ -37,11 +40,15 @@ server = "uvicorn:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["env*", "server*", "tools*", "agents*", "training*"]
+include = [
+    "env*", "server*", "tools*", "agents*", "training*",
+    "red_team*", "blue_team*", "rewards*", "evaluation*",
+]
 
 [tool.setuptools]
 py-modules = []
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
+testpaths = ["tests"]
+addopts = "-v --tb=short"

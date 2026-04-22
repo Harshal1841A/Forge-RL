@@ -19,13 +19,13 @@ import atexit
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-# ─── Environment & Agent Imports ──────────────────────────────────────────────
+# --- Environment & Agent Imports ----------------------------------------------
 import config
 from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
 from agents.llm_agent import LLMAgent
 from env.tasks import TASK_REGISTRY
 
-# ─── Constants & Config ───────────────────────────────────────────────────────
+# --- Constants & Config -------------------------------------------------------
 DB_PATH = "forge_memory.db"
 POLICY_PATH = "forge_policy.json"
 AGENT_STEP_BACKSTOP = 200
@@ -41,25 +41,25 @@ ACTIVE_LOCK = threading.Lock()
 LAST_CALL = {}
 
 TASK_META = {
-    "fabricated_stats": {"icon": "📊", "code": "FAB_STAT"},
-    "out_of_context": {"icon": "🔀", "code": "OOC_STRIP"},
-    "coordinated_campaign": {"icon": "🤖", "code": "BOT_CAMP"},
-    "satire_news": {"icon": "🎭", "code": "SAT_PARSE"},
-    "verified_fact": {"icon": "✅", "code": "VER_FACT"},
-    "politifact_liar": {"icon": "🏛️", "code": "POL_LIAR"},
-    "image_forensics": {"icon": "🖼️", "code": "IMG_FRNSC"},
-    "sec_fraud": {"icon": "💰", "code": "SEC_FRAUD"},
+    "fabricated_stats": {"icon": "??", "code": "FAB_STAT"},
+    "out_of_context": {"icon": "??", "code": "OOC_STRIP"},
+    "coordinated_campaign": {"icon": "??", "code": "BOT_CAMP"},
+    "satire_news": {"icon": "??", "code": "SAT_PARSE"},
+    "verified_fact": {"icon": "?", "code": "VER_FACT"},
+    "politifact_liar": {"icon": "???", "code": "POL_LIAR"},
+    "image_forensics": {"icon": "???", "code": "IMG_FRNSC"},
+    "sec_fraud": {"icon": "??", "code": "SEC_FRAUD"},
 }
 
 EXAMPLE_CLAIMS = [[k, 1] for k in list(TASK_META.keys())[:5]]
 
 ACTION_ICONS = {
-    "query_source": "🔍", "trace_origin": "🕵️", "cross_reference": "📖",
-    "request_context": "📄", "entity_link": "🔗", "temporal_audit": "⏱️",
-    "network_cluster": "🕸️", "flag_manipulation": "🚩",
-    "submit_verdict_real": "✅", "submit_verdict_misinfo": "❌",
-    "submit_verdict_satire": "🎭", "submit_verdict_out_of_context": "✂️",
-    "submit_verdict_fabricated": "⚠️",
+    "query_source": "??", "trace_origin": "???", "cross_reference": "??",
+    "request_context": "??", "entity_link": "??", "temporal_audit": "??",
+    "network_cluster": "???", "flag_manipulation": "??",
+    "submit_verdict_real": "?", "submit_verdict_misinfo": "?",
+    "submit_verdict_satire": "??", "submit_verdict_out_of_context": "??",
+    "submit_verdict_fabricated": "??",
 }
 
 ACTION_COLORS = {k: "#00f5ff" for k in ACTION_ICONS.keys()}
@@ -71,9 +71,9 @@ ACTION_COLORS.update({
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 _app_logger = logging.getLogger("forge.enterprise")
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # 1. OBSERVABILITY
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 class Metrics:
     def __init__(self):
         self._lock = threading.Lock()
@@ -94,10 +94,10 @@ class Metrics:
 
 FORGE_METRICS = Metrics()
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # 2. PERSISTENCE (SQLite FTS5) — PATCHED: Input sanitization
-# ══════════════════════════════════════════════════════════════════════════════
-# 🔥 PATCH #3: FTS5 special chars can break MATCH queries
+# ------------------------------------------------------------------------------
+# ?? PATCH #3: FTS5 special chars can break MATCH queries
 _FTS5_SAFE = re.compile(r'[^a-zA-Z0-9_]')
 def _sanitize_fts5(s: str) -> str:
     """Strip FTS5 special chars (", *, :, -, (, ), etc.)"""
@@ -146,9 +146,9 @@ class ForgeDB:
 
 FORGE_DB = ForgeDB()
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # 3. RL POLICY
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 class RLPolicy:
     def __init__(self, path=POLICY_PATH):
         self.path = path; self._lock = threading.Lock()
@@ -182,9 +182,9 @@ class RLPolicy:
 
 FORGE_POLICY = RLPolicy()
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # 4. CONCURRENCY & SECURITY — PATCHED: Semantic rename
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 _LLM_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm_worker")
 @atexit.register
 def shutdown_executor():
@@ -193,7 +193,7 @@ def shutdown_executor():
 
 class AutonomousCore:
     def __init__(self):
-        # 🔥 PATCH #5: Renamed for clarity. running_event.is_set() == "is running"
+        # ?? PATCH #5: Renamed for clarity. running_event.is_set() == "is running"
         self.running_event = threading.Event()
         self.active_run_id = None
 
@@ -226,6 +226,43 @@ def validate_inputs(task_name: str, difficulty: str):
     except (ValueError, TypeError): raise gr.Error("Difficulty must be 1-4.")
     return True
 
+THROTTLE_INTERVAL = 0.35
+LOG_DISPLAY_COUNT = 12
+LLM_TIMEOUT = 20
+
+MAX_ACTIVE_RUNS = 5
+ACTIVE_RUNS = 0
+ACTIVE_LOCK = threading.Lock()
+LAST_CALL = {}
+
+TASK_META = {
+    "fabricated_stats": {"icon": "??", "code": "FAB_STAT"},
+    "out_of_context": {"icon": "??", "code": "OOC_STRIP"},
+    "coordinated_campaign": {"icon": "??", "code": "BOT_CAMP"},
+    "satire_news": {"icon": "??", "code": "SAT_PARSE"},
+    "verified_fact": {"icon": "?", "code": "VER_FACT"},
+    "politifact_liar": {"icon": "???", "code": "POL_LIAR"},
+    "image_forensics": {"icon": "???", "code": "IMG_FRNSC"},
+    "sec_fraud": {"icon": "??", "code": "SEC_FRAUD"},
+}
+
+EXAMPLE_CLAIMS = [[k, 1] for k in list(TASK_META.keys())[:5]]
+
+ACTION_ICONS = {
+    "query_source": "??", "trace_origin": "???", "cross_reference": "??",
+    "request_context": "??", "entity_link": "??", "temporal_audit": "??",
+    "network_cluster": "???", "flag_manipulation": "??",
+    "submit_verdict_real": "?", "submit_verdict_misinfo": "?",
+    "submit_verdict_satire": "??", "submit_verdict_out_of_context": "??",
+    "submit_verdict_fabricated": "??",
+}
+
+ACTION_COLORS = {k: "#00f5ff" for k in ACTION_ICONS.keys()}
+ACTION_COLORS.update({
+    "flag_manipulation": "#ff006e", "submit_verdict_real": "#00ff87",
+    "submit_verdict_misinfo": "#ff006e"
+})
+
 async def _safe_act_async(agent, obs, context):
     loop = asyncio.get_running_loop()
     try:
@@ -241,9 +278,9 @@ async def _safe_act_async(agent, obs, context):
     if not (isinstance(action, int) and 0 <= action < len(ACTIONS)): action = 0
     return action
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # 5. UI GENERATORS — PATCHED: Log animation only on newest entry
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 def _s(text: str, max_len: int = 120) -> str:
     return html_lib.escape(str(text))[:max_len] if text else ""
 
@@ -256,7 +293,7 @@ def _topnav(auto=False) -> str:
             '<div class="forge-live-pill neon-green"><div class="forge-pulse-dot"></div>LIVE</div>')
     return (f'<div class="forge-topnav">'
             f'<div style="display:flex;align-items:center;gap:14px;">'
-            f'<div class="forge-logo-icon">🛡️</div>'
+            f'<div class="forge-logo-icon">???</div>'
             f'<div><div class="forge-logo-text">FORGE</div>'
             f'<div style="font-size:11px;color:var(--c-cyan);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Hardened Enterprise Core</div></div>'
             f'</div>{pill}</div>')
@@ -272,7 +309,7 @@ def _left_idle() -> str:
     return ('<div style="padding:22px;">'
             '<div class="section-header"><span class="dot-idle"></span>LIVE FEED</div>'
             '<div style="text-align:center;padding:48px 20px;color:var(--txt2);">'
-            '<div class="icon-idle">📡</div>'
+            '<div class="icon-idle">??</div>'
             '<div style="font-size:12px;font-weight:500;">Awaiting Task Initialization</div>'
             '</div></div>')
 
@@ -281,14 +318,14 @@ def _left_active(logs) -> str:
     visible = logs[-LOG_DISPLAY_COUNT:]
     last_idx = len(visible) - 1
     for i, (t, m, a) in enumerate(visible):
-        # 🔥 PATCH #6: Only animate newest entry to avoid replay on every yield
+        # ?? PATCH #6: Only animate newest entry to avoid replay on every yield
         is_newest = (i == last_idx)
         anim_class = "log-entry-new" if is_newest else "log-entry-stable"
         color = ACTION_COLORS.get(a, "var(--c-cyan)")
         h += (f'<div class="log-entry {anim_class}" style="border-left-color:{color};">'
               f'<span class="log-time">{t}</span>'
               f'<div><div class="log-action" style="color:{color};text-shadow:0 0 6px {color}60;">'
-              f'{ACTION_ICONS.get(a,"⚡")} {a.replace("_"," ").title()}</div>'
+              f'{ACTION_ICONS.get(a,"?")} {a.replace("_"," ").title()}</div>'
               f'<div class="log-detail">{_s(m, 80)}</div></div></div>')
     return (f'<div style="padding:22px;">'
             f'<div class="section-header neon-purple-text"><span class="dot-purple"></span>LIVE FEED</div>'
@@ -297,7 +334,7 @@ def _left_active(logs) -> str:
 def _center_idle() -> str:
     return ('<div class="scanner-container idle-scanner">'
             '<div class="scanner-ring"></div>'
-            '<div class="icon-center-idle">🔍</div>'
+            '<div class="icon-center-idle">??</div>'
             '<div style="font-size:14px;font-weight:600;color:var(--txt2);position:relative;z-index:2;">System Standing By</div>'
             '</div>')
 
@@ -308,7 +345,7 @@ def _highlight_entities(text: str) -> str:
                   r'<span class="highlight-entity">\1</span>', safe_text)
 
 def _center_active(claim, task, vir, dom, stat, cov=0.0, div=0.0, bud=1.0) -> str:
-    meta = TASK_META.get(task, {"icon": "🔍", "code": "UNK"})
+    meta = TASK_META.get(task, {"icon": "??", "code": "UNK"})
     c, d, b = int(cov*100), min(100, int((div/5.0)*100)), max(0, int(bud*100))
     return (f'<div class="scanner-container" style="min-height:340px;padding:22px;">'
             f'<div style="display:flex;justify-content:center;margin-bottom:16px;">'
@@ -334,7 +371,7 @@ def _center_active(claim, task, vir, dom, stat, cov=0.0, div=0.0, bud=1.0) -> st
 def _right_idle() -> str:
     return ('<div style="padding:22px;height:100%;display:flex;align-items:center;justify-content:center;">'
             '<div style="text-align:center;color:var(--txt2);">'
-            '<div class="icon-agent-idle">🧠</div>'
+            '<div class="icon-agent-idle">??</div>'
             '<div style="font-size:13px;font-weight:600;">Agent Offline</div>'
             '</div></div>')
 
@@ -359,10 +396,10 @@ def _right_active(think, pred, fsm, step, max_s, cov, con) -> str:
 
 def _right_done(verdict, true_l, correct, steps, reward, conf) -> str:
     cls, glow, badge_text, icon = (
-        ("verdict-correct", "var(--c-green)", "✅ CORRECT VERDICT", "✅")
+        ("verdict-correct", "var(--c-green)", "? CORRECT VERDICT", "?")
         if correct else
-        ("verdict-wrong", "var(--c-pink)", "🚨 INCORRECT VERDICT", "🚨")
-    )
+        ("verdict-wrong", "var(--c-pink)", "?? INCORRECT VERDICT", "??")
+        )
     return (f'<div style="padding:22px;">'
             f'<div class="section-header">INVESTIGATION RESOLVED</div>'
             f'<div class="{cls}" style="margin-bottom:16px;">'
@@ -390,9 +427,9 @@ def _graph_text(env) -> str:
     base += f"\n[O11Y] Runs: {stats['runs']} | P50: {stats['p50']}ms | P99: {stats['p99']}ms | Err: {stats['errors']}"
     return base
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # PREMIUM CSS — ENHANCED AURORA, NEON, CURSOR
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 FORGE_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -413,7 +450,7 @@ FORGE_CSS = """
 
 html, body { background: #000 !important; margin: 0; padding: 0; overflow-x: hidden; }
 
-/* ═══ NEON GRID BACKGROUND ═══ */
+/* --- NEON GRID BACKGROUND --- */
 body::before {
     content: ''; position: fixed; inset: 0; z-index: -2;
     background:
@@ -444,7 +481,7 @@ body::before {
     content: none;
 }
 
-/* ═══ CURSOR SYSTEM (hidden on mobile, forced visible on desktop) ═══ */
+/* --- CURSOR SYSTEM (hidden on mobile, forced visible on desktop) --- */
 #fg-dot, #fg-ring { display: none; }
 @media (hover: hover) and (pointer: fine) {
     body.forge-active, body.forge-active * { cursor: none !important; }
@@ -506,7 +543,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
         0 0 32px rgba(255, 0, 110, 0.35);
 }
 
-/* ═══ GRADIO RESETS ═══ */
+/* --- GRADIO RESETS --- */
 .gradio-container {
     background: transparent !important;
     font-family: var(--font-ui) !important;
@@ -519,7 +556,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 .gradio-container footer, .built-with { display: none !important; }
 #ai-state-wrapper { height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; border: none !important; }
 
-/* ═══ TOP NAV ═══ */
+/* --- TOP NAV --- */
 .forge-topnav {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 30px; margin-bottom: 20px;
@@ -595,7 +632,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     50% { box-shadow: 0 0 0 7px rgba(0,255,135,0), 0 0 14px currentColor; }
 }
 
-/* ═══ STATUSBAR ═══ */
+/* --- STATUSBAR --- */
 .forge-statusbar {
     font-size: 11px; color: var(--txt2);
     display: flex; justify-content: space-between;
@@ -607,7 +644,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
-/* ═══ NEON PANELS ═══ */
+/* --- NEON PANELS --- */
 .glass-panel {
     background: rgba(0,0,0,0.7) !important;
     border: 1px solid rgba(0,245,255,0.15) !important;
@@ -667,7 +704,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     50% { transform: scale(1.1); opacity: 0.3; }
 }
 
-/* ═══ SECTION HEADERS ═══ */
+/* --- SECTION HEADERS --- */
 .section-header {
     font-size: 10px; color: var(--txt2);
     font-weight: 700; text-transform: uppercase;
@@ -702,7 +739,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 }
 @keyframes iconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-/* ═══ TASK BADGE (Neon Cyan) ═══ */
+/* --- TASK BADGE (Neon Cyan) --- */
 .task-badge {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 18px; border-radius: 20px;
@@ -715,7 +752,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     text-shadow: 0 0 6px rgba(0,245,255,0.5);
 }
 
-/* ═══ META CARDS (Neon Glow on Hover) ═══ */
+/* --- META CARDS (Neon Glow on Hover) --- */
 .meta-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; padding: 0 24px 24px; }
 .meta-card {
     position: relative; padding: 16px 12px;
@@ -746,7 +783,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     text-shadow: 0 0 18px rgba(0,245,255,0.6), 0 0 4px rgba(0,245,255,0.9);
 }
 
-/* ═══ PROGRESS BARS (Neon Trail) ═══ */
+/* --- PROGRESS BARS (Neon Trail) --- */
 .pb-wrap { margin-bottom: 14px; }
 .pb-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
 .pb-name { font-size: 12px; font-weight: 600; color: var(--txt); }
@@ -767,7 +804,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 .pb-purple { background: linear-gradient(90deg,#7b00d4,#bf00ff); box-shadow: 0 0 10px rgba(191,0,255,0.5); }
 .pb-green  { background: linear-gradient(90deg,#00c96b,#00ff87); box-shadow: 0 0 10px rgba(0,255,135,0.5); }
 
-/* ═══ LOG ENTRIES — PATCHED: only newest animates ═══ */
+/* --- LOG ENTRIES — PATCHED: only newest animates --- */
 .log-entry {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
@@ -797,7 +834,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 .log-action { font-size: 12px; font-weight: 700; font-family: var(--font-mono); }
 .log-detail { font-size: 11px; color: var(--txt2); margin-top: 2px; }
 
-/* ═══ CLAIM TEXT & HIGHLIGHTS ═══ */
+/* --- CLAIM TEXT & HIGHLIGHTS --- */
 .claim-text {
     font-size: clamp(15px, 1.8vw, 21px) !important;
     font-weight: 500; color: var(--txt);
@@ -816,7 +853,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 }
 @keyframes entityShimmer { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
 
-/* ═══ ORBIT BADGE ═══ */
+/* --- ORBIT BADGE --- */
 .orbit-badge { position: relative; width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .orbit-ring-1 {
     position: absolute; inset: 0;
@@ -840,7 +877,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
     z-index: 1; text-shadow: 0 0 16px rgba(0,245,255,0.8), 0 0 4px rgba(0,245,255,1);
 }
 
-/* ═══ THOUGHT BOX & STAT MINI ═══ */
+/* --- THOUGHT BOX & STAT MINI --- */
 .thought-box {
     background: rgba(0,0,0,0.45);
     border: 1px solid rgba(191,0,255,0.25);
@@ -867,7 +904,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 .stat-mini-label { font-size: 9px; color: var(--txt2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 .stat-mini-val { font-size: 15px; font-weight: 800; margin-top: 3px; font-family: var(--font-mono); }
 
-/* ═══ VERDICTS ═══ */
+/* --- VERDICTS --- */
 .verdict-correct, .verdict-wrong {
     text-align: center; padding: 28px 20px;
     border-radius: 18px;
@@ -906,7 +943,7 @@ canvas.fg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh
 .result-label { font-size: 12px; color: var(--txt2); font-weight: 500; }
 .result-value { font-size: 12px; color: var(--txt); font-weight: 700; font-family: var(--font-mono); }
 
-/* ═══ BUTTONS (Premium Neon Gradient Sweep) ═══ */
+/* --- BUTTONS (Premium Neon Gradient Sweep) --- */
 button.primary {
     background: linear-gradient(110deg,#00b4d8 0%,#bf00ff 35%,#ff006e 50%,#bf00ff 65%,#00b4d8 100%) !important;
     background-size: 200% auto !important;
@@ -954,7 +991,7 @@ button.secondary:hover {
     transform: translateY(-2px) !important;
 }
 
-/* ═══ INPUT STYLING ═══ */
+/* --- INPUT STYLING --- */
 .gradio-container input, .gradio-container select, .gradio-container textarea,
 .gradio-container .wrap, .gradio-container .secondary-wrap {
     background: rgba(0,0,0,0.55) !important;
@@ -991,7 +1028,7 @@ button.secondary:hover {
     box-shadow: 0 0 12px rgba(191,0,255,0.15) !important;
 }
 
-/* ── Aurora wrapper for controls panel ───────────────────────────── */
+/* -- Aurora wrapper for controls panel ----------------------------- */
 .aurora-wrap {
     position: relative;
     overflow: hidden;
@@ -1031,7 +1068,7 @@ button.secondary:hover {
 /* Ensure children render above aurora glow */
 .aurora-wrap > * { position: relative; z-index: 1; }
 
-/* ── Neon dropdown target ───────────────────────────────────────── */
+/* -- Neon dropdown target ----------------------------------------- */
 #task_dd {
     background: transparent !important;
     border: none !important;
@@ -1063,9 +1100,9 @@ button.secondary:hover {
 #task_dd ul.options li:hover { background: rgba(0,245,255,0.15) !important; }
 """
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # PREMIUM JS — ENHANCED AURORA SHADER + ROBUST CURSOR
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 FORGE_JS = """
 function() {
     console.log("[FORGE V4.2] Aurora + Neon Engine init");
@@ -1132,7 +1169,7 @@ function() {
                 console.warn("[FORGE] WebGL context lost");
             });
 
-            // ═══ ENHANCED AURORA SHADER ═══
+            // --- ENHANCED AURORA SHADER ---
             if (!window.__FORGE_NO_WEBGL && !window.__FORGE_GL_PROG) {
                 const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
                 const fsSource = `
@@ -1281,7 +1318,7 @@ function() {
             }
             resize();
 
-            // ═══ PARTICLES ═══
+            // --- PARTICLES ---
             if (!window.__FORGE_PARTS) {
                 window.__FORGE_PARTS = Array.from({ length: 80 }, () => ({
                     x: Math.random() * innerWidth,
@@ -1294,7 +1331,7 @@ function() {
                 }));
             }
 
-            // ═══ CURSOR TRACKING ═══
+            // --- CURSOR TRACKING ---
             if (window.__FORGE_MOUSE_X === undefined) {
                 window.__FORGE_MOUSE_X = innerWidth / 2;
                 window.__FORGE_MOUSE_Y = innerHeight / 2;
@@ -1303,7 +1340,7 @@ function() {
                 window.__FORGE_PTS = [];
             }
 
-            // 🔥 ROBUST CURSOR: use both mousemove AND pointermove for maximum compatibility
+            // ?? ROBUST CURSOR: use both mousemove AND pointermove for maximum compatibility
             if (!window.__FORGE_MOUSE_ATTACHED) {
                 const onMove = (e) => {
                     const x = e.clientX, y = e.clientY;
@@ -1318,7 +1355,7 @@ function() {
                 document.addEventListener('mousemove', onMove, { passive: true });
                 document.addEventListener('pointermove', onMove, { passive: true });
                 
-                // 🔥 INTERACTIVE CURSOR STATES — hot-swap on hover over buttons/links
+                // ?? INTERACTIVE CURSOR STATES — hot-swap on hover over buttons/links
                 const setHot = (hot) => {
                     if (hot) { dot.classList.add('cursor-hot'); ring.classList.add('cursor-hot'); }
                     else { dot.classList.remove('cursor-hot'); ring.classList.remove('cursor-hot'); }
@@ -1347,7 +1384,7 @@ function() {
             }
             function lerp(a, b, t) { return a + (b - a) * t; }
 
-            // ═══ MASTER ANIMATION LOOP ═══
+            // --- MASTER ANIMATION LOOP ---
             let lastTime = 0, lastFrameTime = performance.now(), slowFrames = 0;
             function masterLoop(ts) {
                 if (!document.body.contains(uiCanvas) || !rafRunning) {
@@ -1459,9 +1496,9 @@ function() {
 }
 """
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # CORE INVESTIGATION LOOP
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = False):
     env = None; t_start = time.time()
     try:
@@ -1486,8 +1523,8 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
         if past_cases: logs.append((_ts(), f"Retrieved {len(past_cases)} DB cases", "cross_reference"))
         logs.append((_ts(), f'Task init: {str(task_id).replace("_", " ").title()}', "query_source"))
 
-        # 🔥 PATCH #4: auto_btn shows "Stop" semantics during autonomous run
-        auto_btn_label = "⏹  Stop Autonomous" if auto_mode else "♾️ Autonomous Mode"
+        # ?? PATCH #4: auto_btn shows "Stop" semantics during autonomous run
+        auto_btn_label = "?  Stop Autonomous" if auto_mode else "?? Autonomous Mode"
 
         yield (_left_active(logs),
                _center_active(claim, task_id, vir, dom, "Waking API…"),
@@ -1572,7 +1609,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
                _right_done(verdict, true_label, correct, env.steps, final_reward, conf),
                _statusbar_html("OPTIMAL" if correct else "ALERT"),
                gr.update(interactive=True),
-               gr.update(value="♾️ Autonomous Mode" if not auto_mode else auto_btn_label, interactive=True),
+               gr.update(value="?? Autonomous Mode" if not auto_mode else auto_btn_label, interactive=True),
                _graph_text(env),
                _ai_state_html("OPTIMAL" if correct else "ALERT", cov, con),
                _topnav(auto_mode))
@@ -1584,7 +1621,7 @@ async def _investigate_async(task_name: str, difficulty: int, auto_mode: bool = 
                _right_idle(),
                _statusbar_html("ERROR"),
                gr.update(interactive=True),
-               gr.update(value="♾️ Autonomous Mode", interactive=True),
+               gr.update(value="?? Autonomous Mode", interactive=True),
                f"Error: {str(e)}",
                _ai_state_html("ALERT"),
                _topnav(auto_mode))
@@ -1601,13 +1638,13 @@ async def investigate_manual(task_name: str, difficulty: str):
             yield state
 
 async def toggle_autonomous():
-    # 🔥 PATCH #5: Semantic clarity — running_event.is_set() == "currently running"
+    # ?? PATCH #5: Semantic clarity — running_event.is_set() == "currently running"
     if FORGE_CORE.running_event.is_set():
         FORGE_CORE.running_event.clear()  # Signal stop
         yield (_left_idle(), _center_idle(), _right_idle(),
                _statusbar_html("IDLE"),
                gr.update(interactive=True),
-               gr.update(value="♾️ Autonomous Mode", interactive=True),
+               gr.update(value="?? Autonomous Mode", interactive=True),
                _graph_text(None),
                _ai_state_html("IDLE"),
                _topnav(False))
@@ -1634,14 +1671,14 @@ async def toggle_autonomous():
     yield (_left_idle(), _center_idle(), _right_idle(),
            _statusbar_html("IDLE"),
            gr.update(interactive=True),
-           gr.update(value="♾️ Autonomous Mode", interactive=True),
+           gr.update(value="?? Autonomous Mode", interactive=True),
            _graph_text(None),
            _ai_state_html("IDLE"),
            _topnav(False))
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 # GRADIO APP
-# ══════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------------------
 EXAMPLES = [
     ["fabricated_stats", 1], ["satire_news", 1],
     ["coordinated_campaign", 2], ["sec_fraud", 2],
@@ -1672,10 +1709,10 @@ with gr.Blocks(
                     with gr.Column(scale=3):
                         diff_sl = gr.Slider(minimum=1, maximum=4, step=1, value=1, label="Depth Level")
                 with gr.Row():
-                    start_btn = gr.Button("▶  Launch Deep Analysis", variant="primary", scale=2)
-                    auto_btn = gr.Button("♾️ Autonomous Mode", variant="secondary", scale=1)
+                    start_btn = gr.Button("?  Launch Deep Analysis", variant="primary", scale=2)
+                    auto_btn = gr.Button("?? Autonomous Mode", variant="secondary", scale=1)
                 gr.Examples(examples=EXAMPLE_CLAIMS, inputs=[task_dd, diff_sl],
-                            label="⚡ Investigation Presets — Quick start")
+                            label="? Investigation Presets — Quick start")
                 statusbar = gr.HTML(_statusbar_html("IDLE"))
         with gr.Column(scale=3, elem_classes=["glass-panel"]):
             right_panel = gr.HTML(_right_idle())
@@ -1684,25 +1721,228 @@ with gr.Blocks(
         label="Evidence Graph & Core State",
         lines=6, interactive=False,
         placeholder="Run an investigation to see live graph statistics…"
-    )
+        )
 
     outputs = [left_panel, center_panel, right_panel, statusbar,
                start_btn, auto_btn, graph_box, ai_state, topnav]
     start_btn.click(fn=investigate_manual, inputs=[task_dd, diff_sl], outputs=outputs)
     auto_btn.click(fn=toggle_autonomous, inputs=[], outputs=outputs)
 
+
+
+# ------------------------------------------------------------------------------
+# FORGE-MA v9.0 — Adversarial Multi-Agent Extension (Integrated Tab)
+# Injected by merge script. Imports are lazy to avoid breaking the base app
+# if torch_geometric / stix2 are not yet installed.
+# ------------------------------------------------------------------------------
+def _forge_ma_run_episode(claim_label: str, budget: int):
+    """Run one FORGE-MA adversarial episode and return (report, reward_json, chain)."""
+    try:
+        import json as _json, time as _time
+        from env.forge_env import ForgeEnv, ForgeEnvConfig
+        from env.oversight_report import generate_oversight_report
+
+        _DEMO_CLAIMS_MA = {
+            "?? Vaccine autism claim":    "Vaccines cause autism, leaked documents confirm.",
+            "?? Temporal misframe":       "Video shows 2015 protest mislabelled as 2024 riots.",
+            "?? Satire reframe":          "Politician quoted saying 'immigrants are criminals' — source: satirical site.",
+            "?? Citation forge":          "Study claims 90% efficacy — journal retracted, still circulating.",
+            "?? Entity substitute":       "Scientist replaced with lookalike in doctored photo.",
+        }
+        claim_text = _DEMO_CLAIMS_MA.get(claim_label, list(_DEMO_CLAIMS_MA.values())[0])
+
+        cfg = ForgeEnvConfig(budget=int(budget), seed=42)
+        env = ForgeEnv(cfg)
+        obs, info = env.reset()
+
+        start = _time.time()
+        for _ in range(cfg.budget):
+            obs, reward, terminated, truncated, step_info = env.step()
+            if terminated or truncated:
+                break
+        elapsed = _time.time() - start
+
+        ep = env.episode_output
+        if ep is None:
+            return "?? Episode failed to complete.", "{}", "N/A"
+
+        report_md = generate_oversight_report(ep, claim_text=claim_text, generation=0)
+        reward_data = {
+            "total":             round(ep.reward_total, 4),
+            "ted":               round(ep.ted_component, 4),
+            "f1":                round(ep.f1_component, 4),
+            "plausibility_delta": round(ep.plausibility_delta, 4),
+            "consensus_bonus":   round(ep.consensus_bonus, 4),
+            "expert_bonus":      round(ep.expert_bonus, 4),
+            "budget_total":      round(ep.budget_total, 4),
+            "elapsed_sec":       round(elapsed, 3),
+            "steps_taken":       ep.steps_taken,
+            "over_budget":       ep.over_budget,
+        }
+        chain_text = " ? ".join(ep.predicted_chain) if ep.predicted_chain else "Ø (no primitives detected)"
+        return report_md, _json.dumps(reward_data, indent=2), chain_text
+
+    except ImportError as e:
+        return (
+            f"?? FORGE-MA deps not installed: `{e}`\n\nRun: `pip install torch-geometric trl stix2`",
+            "{}",
+            "N/A",
+        )
+    except Exception as e:
+        import traceback as _tb
+        return f"? Error: {e}\n```\n{_tb.format_exc()}\n```", "{}", "N/A"
+
+
+def _forge_ma_run_training(n_episodes: int, n_generations: int):
+    """Run FORGE-MA PPO training loop."""
+    try:
+        import json as _json
+        from env.forge_env import ForgeEnvConfig
+        from training.ppo_trainer_ma import PPOTrainer
+
+        cfg = ForgeEnvConfig(budget=5, seed=0)
+        trainer = PPOTrainer(
+            env_config=cfg,
+            n_episodes_per_generation=int(n_episodes),
+            max_generations=int(n_generations),
+            use_trl=False,
+        )
+        stats = trainer.train()
+        summary = stats.summary()
+
+        md = f"""## ?? FORGE-MA Training Complete
+
+| Metric | Value |
+|--------|-------|
+| Generations | {summary.get('generation', 0) + 1} |
+| Episodes Run | {summary.get('episodes_run', 0)} |
+| Mean Reward | `{summary.get('mean_reward', 0):.4f}` |
+| Max Reward | `{summary.get('max_reward', 0):.4f}` |
+| Over-Budget % | `{summary.get('over_budget_pct', 0):.1%}` |
+| Chain Accuracy | `{summary.get('chain_accuracy', 0):.1%}` |
+
+> ? PPO training loop verified — Red/Blue adversarial RL.
+"""
+        return md, _json.dumps(summary, indent=2)
+
+    except ImportError as e:
+        return f"?? Deps missing: `{e}` — run `pip install torch-geometric trl stix2`", "{}"
+    except Exception as e:
+        import traceback as _tb
+        return f"? {e}\n```\n{_tb.format_exc()}\n```", "{}"
+
+
+# -- FORGE-MA UI Block (injected inside the existing `demo` Blocks) ------------
+with demo:
+    gr.Markdown(
+        """---
+## ?? FORGE-MA v9.0 — Adversarial Multi-Agent Extension
+*Red Team vs Blue Team · HAE Adversary · Society of Thought · Hierarchical Rewards*"""
+        )
+
+
+    with gr.Tabs(elem_id="forge_ma_tabs"):
+        # -- Tab A: Adversarial Forensic Episode ----------------------------
+        with gr.Tab("?? Adversarial Episode (FORGE-MA)"):
+            with gr.Row():
+                with gr.Column(scale=1):
+                    ma_claim_dd = gr.Dropdown(
+                        choices=[
+                            "?? Vaccine autism claim",
+                            "?? Temporal misframe",
+                            "?? Satire reframe",
+                            "?? Citation forge",
+                            "?? Entity substitute",
+                        ],
+                        value="?? Vaccine autism claim",
+                        label="?? Select Claim Scenario",
+                    )
+                    ma_budget_sl = gr.Slider(
+                        minimum=3, maximum=10, value=5, step=1,
+                        label="?? Episode Budget (Red Team steps)",
+                    )
+                    ma_run_btn = gr.Button("?? Run Adversarial Episode", variant="primary")
+                    ma_chain_out = gr.Textbox(
+                        label="?? Predicted Tactic Chain (DISARM TTPs)",
+                        interactive=False,
+                    )
+                with gr.Column(scale=2):
+                    ma_report_out = gr.Markdown(label="?? FORGE-MA Oversight Report")
+
+            with gr.Accordion("?? Raw Reward Breakdown (JSON)", open=False):
+                ma_reward_json = gr.Code(language="json", label="Hierarchical Reward")
+
+            ma_run_btn.click(
+                fn=_forge_ma_run_episode,
+                inputs=[ma_claim_dd, ma_budget_sl],
+                outputs=[ma_report_out, ma_reward_json, ma_chain_out],
+            )
+
+        # -- Tab B: PPO Training Loop ----------------------------------------
+        with gr.Tab("??? PPO Training (FORGE-MA)"):
+            with gr.Row():
+                ma_ep_sl  = gr.Slider(1, 10, value=4, step=1, label="Episodes / Generation")
+                ma_gen_sl = gr.Slider(1, 5,  value=2, step=1, label="Generations")
+            ma_train_btn = gr.Button("?? Run FORGE-MA Training", variant="primary")
+            with gr.Row():
+                ma_train_md   = gr.Markdown()
+                ma_train_json = gr.Code(language="json", label="Stats JSON")
+            ma_train_btn.click(
+                fn=_forge_ma_run_training,
+                inputs=[ma_ep_sl, ma_gen_sl],
+                outputs=[ma_train_md, ma_train_json],
+            )
+
+        # -- Tab C: Architecture Diagram ------------------------------------
+        with gr.Tab("?? FORGE-MA Architecture"):
+            gr.Markdown("""
+## FORGE-MA v9.0 — Multi-Agent Adversarial Architecture
+
+```
+Society of Thought (Blue Team — 4 agents)
++-- Forensic Auditor        — leads investigation
++-- Context Historian       — temporal framing
++-- Narrative Critic        — quote/satire specialist (P4, P8)
++-- Graph Specialist        — BlueGIN (2-layer, SUM, 64-dim)
+
+Red Team
++-- HAE Adversary           — 1-layer GNN (MEAN, 32-dim) + ActionValidator
+
+Hierarchical Reward Shaper
++-- TED   × 0.40            — tactic chain edit distance
++-- F1    × 0.30            — tactic precision/recall
++-- PLB   × 0.20            — plausibility delta
++-- Consensus bonus         — ±0.05 / +0.10 unanimous
++-- Expert bonus            — +0.05 APPROVE
++-- Budget penalty          — -0.01/step, -0.50 over-budget
+```
+
+| Parameter | Value |
+|---|---|
+| K_MAX (chain length) | **4** |
+| Blue GIN layers | **2** (SUM, 64-dim) |
+| Red HAE layers | **1** (MEAN, 32-dim) |
+| DISARM ID format | **T-prefix only** |
+| Plausibility scorer | **Zero LM calls, <1ms** |
+
+> Original FORGE v1 (MisInfoForensicsEnv with Gymnasium) is preserved above.
+> FORGE-MA adds the adversarial Red/Blue duel on top using the same evidence graph model.
+""")
+
 if __name__ == "__main__":
-    demo.queue(api_open=False, default_concurrency_limit=10).launch(
-        server_name="0.0.0.0", server_port=7860,
-        theme=gr.themes.Base(
-            primary_hue="blue", secondary_hue="purple", neutral_hue="slate",
-            font=gr.themes.GoogleFont("Inter")
-        ).set(
-            body_background_fill="transparent",
-            block_background_fill="transparent",
-            block_border_width="0px",
-            input_background_fill="rgba(0,0,0,0.4)",
-            input_border_color="rgba(255,255,255,0.12)"
-        ),
-        css=FORGE_CSS, js=FORGE_JS
-    )
+    import os
+    if not os.environ.get("RUN_FROM_FASTAPI"):
+        demo.queue(api_open=False, default_concurrency_limit=10).launch(
+            server_name="0.0.0.0", server_port=7860,
+            theme=gr.themes.Base(
+                primary_hue="blue", secondary_hue="purple", neutral_hue="slate",
+                font=gr.themes.GoogleFont("Inter")
+            ).set(
+                body_background_fill="transparent",
+                block_background_fill="transparent",
+                block_border_width="0px",
+                input_background_fill="rgba(0,0,0,0.4)",
+                input_border_color="rgba(255,255,255,0.12)"
+            ),
+            css=FORGE_CSS, js=FORGE_JS
+        )

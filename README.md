@@ -1,215 +1,243 @@
----
-title: FORGE Misinformation RL
-colorFrom: green
-colorTo: blue
-sdk: gradio
-pinned: true
-tags:
-  - openenv
-  - reinforcement-learning  
-  - misinformation
-  - fact-checking
-  - trust-and-safety
-  - graph-neural-network
-  - content-moderation
+# FORGE v2.1 — Unified Misinformation Forensics Platform
+
+> **FORGE v1** (Gymnasium RL environment) **+** **FORGE-MA v9.0** (Adversarial Multi-Agent RL extension)  
+> *Meta × HuggingFace OpenEnv Hackathon — Round 2*
+
 ---
 
-# FORGE: Forensic RL Graph Environment
+## Overview
 
-> Train and evaluate agents that investigate misinformation the way 
-> human fact-checkers actually do — sequentially, under time pressure, 
-> with incomplete information.
+FORGE v2.1 merges two complementary systems into one codebase and introduces a **multi-provider agent architecture** that eliminates shared-model bias by routing each forensic agent to a different AI provider.
 
-> [Why FORGE matters for real-world content moderation →](REAL_WORLD_IMPACT.md)
+| System | Role |
+|---|---|
+| **FORGE v1** (`env/misinfo_env.py`) | Production Gymnasium env with 8 task types, tool registry, FastAPI server, GNN policy, PPO training |
+| **FORGE-MA v9.0** (`env/forge_env.py`) | Adversarial multi-agent extension: Red Team (HAE) vs Blue Team (SoT + GIN), hierarchical rewards |
 
-## The Problem FORGE Solves
+---
 
-Content moderation at scale faces a fundamental tension: human 
-fact-checkers are accurate but slow; automated classifiers are fast 
-but shallow. Neither approach models the **investigative process** 
-that experienced Trust & Safety engineers use.
+## 🧠 Multi-Provider Agent Architecture (v2.1)
 
-FORGE bridges this gap. It frames fact-checking as a sequential 
-decision problem where an agent must:
+Each forensic agent uses a **different AI provider** — no shared training data, no shared bias.
 
-- Choose which forensic tool to apply at each step
-- Build a structured evidence graph from tool results  
-- Submit a verdict under a tight step budget
+| Agent | Provider | Model | Why |
+|---|---|---|---|
+| **Forensic Auditor** | 🟣 Groq | `llama3-70b-8192` | Strong factual/source reasoning |
+| **Context Historian** | 🔵 Cerebras | `llama3.1-70b` | Best at temporal/provenance detection |
+| **Narrative Critic** | 🟠 Mistral | `mistral-small-latest` | Excels at narrative style & satire |
+| **NegotiatedSearch** | 🟢 OpenRouter | `llama-3-8b:free` | Fast, lightweight tool-selection pre-pass |
 
-An agent trained on FORGE learns **investigation policies** — not 
-just classification boundaries. It learns that some claims require 
-source verification first; others require timeline analysis; others 
-require bot network detection. This mirrors how real content 
-moderation teams triage and escalate content.
+A verdict flagged by **all 4 agents** from 4 different companies = extremely high confidence (true cross-model consensus).
 
-**Immediate applications:**
-- Training automated triage systems for content moderation pipelines
-- Benchmarking LLMs on structured investigative reasoning
-- Studying how investigation strategies transfer across misinformation types
-- Evaluating whether agents can prioritise the right tools under budget constraints
+> All 4 providers are **100% free** with no credit card required. The system falls back gracefully to deterministic mock logic when any API key is missing.
 
-## Environment
+---
 
-**Observation** — `Box(3859,)` float32:
-```text
-[0:3840]     Sentence embeddings of up to 10 discovered claim graph nodes
-[3840:3853]  Tool usage history (call counts per action)
-[3853:3859]  Graph scalars: coverage, diversity, contradictions, manipulation_flag, budget_remaining, steps_ratio
+## FORGE v1 Architecture
+
+```
+MisInfoForensicsEnv (Gymnasium)
+├── 8 Task Types (fabricated_stats, sec_fraud, image_forensics, ...)
+├── 13 Actions (tool calls + verdict submission)
+├── LLM Agent (OpenAI / Groq)
+├── GNN Policy (PPO-trained)
+├── Tool Registry (query_source, trace_origin, cross_reference, ...)
+└── FastAPI Server (REST API + WebSocket)
 ```
 
-**Actions** — `Discrete(13)`:
-```text
-Investigation tools (0-7):
-0  query_source      Domain credibility check
-1  trace_origin      Wayback Machine / propagation tracing
-2  cross_reference   Wikipedia / encyclopedia verification
-3  request_context   LLM structural summarisation
-4  entity_link       Wikidata entity disambiguation
-5  temporal_audit    Timestamp anomaly detection
-6  network_cluster   Bot network / coordination detection
-7  flag_manipulation Free action — tag adversarial intent
+## FORGE-MA v9.0 Architecture
 
-Verdicts (8-12):
-8   submit_verdict_real
-9   submit_verdict_misinfo
-10  submit_verdict_satire
-11  submit_verdict_out_of_context
-12  submit_verdict_fabricated
+```
+Society of Thought (Blue Team — 4 agents, 4 different AIs)
+├── Forensic Auditor   [Groq/Llama]     — leads investigation
+├── Context Historian  [Cerebras/Llama]  — temporal framing
+├── Narrative Critic   [Mistral]         — quote/satire specialist (P4, P8)
+└── Graph Specialist   [BlueGIN local]   — 2-layer GIN (SUM, 64-dim)
+
+Red Team
+└── HAE Adversary      — 1-layer GNN (MEAN, 32-dim) + ActionValidator
+
+Hierarchical Reward Shaper
+├── TED   × 0.40       — tactic chain edit distance
+├── F1    × 0.30       — tactic precision / recall
+├── PLB   × 0.20       — plausibility delta
+├── Consensus bonus    — ±0.05 / +0.10 unanimous
+├── Expert bonus       — +0.05 APPROVE
+└── Budget penalty     — −0.01/step, −0.50 over-budget
 ```
 
-**Reward** — Dense, potential-based shaped reward (Ng et al., 1999):
-```text
-Step reward:    r = base + γΦ(s') − Φ(s)
-Terminal:       correctness + calibration bonus + efficiency bonus + manipulation detection component
-Range:          (0.001, 0.999) — strictly open interval
-```
+## Key Constraints (FORGE-MA)
 
-## Tasks
+| Parameter | Value |
+|---|---|
+| `K_MAX` (chain length) | **4** |
+| Blue GIN layers | **2** (SUM, 64-dim) |
+| Red HAE layers | **1** (MEAN, 32-dim) |
+| DISARM ID format | **T-prefix only** |
+| Plausibility scorer | **Zero LM calls, <1ms** |
 
-| Task | Difficulty | Domain | Required Tools | Real Data |
-|---|---|---|---|---|
-| `fabricated_stats` | Easy | Science/Health | entity_link, cross_reference | No |
-| `verified_fact` | Easy | Control | cross_reference, entity_link | No |
-| `out_of_context` | Medium | Media/Images | trace_origin, temporal_audit | No |
-| `politifact_liar` | Medium | Politics | cross_reference, entity_link | **LIAR dataset** |
-| `satire_news` | Medium | Journalism | request_context, cross_reference | No |
-| `coordinated_campaign` | Hard | Social Networks | network_cluster, query_source | No |
-| `image_forensics` | Hard | Multimodal | temporal_audit, trace_origin | No |
-| `sec_fraud` | Hard | Finance/SEC | cross_reference, entity_link | No |
-
-Each task has a deterministic grader that awards partial credit for 
-correct tool usage independently of verdict correctness — providing 
-dense signal across the full trajectory.
-
-## Adversarial Self-Play
-
-FORGE includes a GAN-inspired co-evolutionary training regime:
-Generator Agent  →  crafts misinformation designed to evade detection
-Investigator     →  learns to detect the generator's output
-↑                              ↓
-└──── mutual improvement loop ─┘
-
-This mirrors the real-world dynamic where bad actors continuously 
-adapt their techniques to evade detection systems. Unlike static 
-datasets, FORGE's adversarial curriculum generates novel, 
-increasingly sophisticated misinformation patterns.
-
-```bash
-python scripts/run_selfplay.py --rounds 10 --difficulty 3
-```
+---
 
 ## Quick Start
 
 ```bash
-# Install
-git clone https://github.com/Harshal1841A/Forge-RL.git
+# 1. Install all dependencies
 pip install -r requirements.txt
 
-# Run offline evaluation (no API key needed)
-python inference.py --episodes 2
+# 2. (Optional) Install FORGE-MA GPU packages
+pip install torch-geometric trl stix2
 
-# Run with LLM agent
-HF_TOKEN=your_groq_key python inference.py --episodes 2
+# 3. Copy example env and fill in your free API keys
+cp .env.example .env
+# Edit .env with your keys (see "Getting Free API Keys" below)
 
-# Start server
-docker build -t forge . && docker run -p 7860:7860 forge
+# 4. Run unified Gradio UI (both FORGE v1 + FORGE-MA tabs)
+python app.py
+
+# 5. Run FORGE v1 tests
+python -m pytest tests/test_graders.py -v
+
+# 6. Run FORGE-MA tests (126 cases)
+python -m pytest tests/forge_ma/ -v --tb=short
+
+# 7. Run FORGE-MA evaluation only
+python -m evaluation.evaluator
+
+# 8. Start FastAPI server (FORGE v1)
+uvicorn server.app:app --host 0.0.0.0 --port 8000
 ```
 
-## API
+---
 
-```bash
-# Start episode
-curl -X POST /reset \
-  -d '{"task_name": "coordinated_campaign", "difficulty": 2}'
+## 🔑 Getting Free API Keys
 
-# Investigate
-curl -X POST /step -d '{"action": 6}'  # network_cluster
+All 4 providers are free with no credit card needed:
 
-# Check what was found
-# Response includes info.hint with plain-English guidance for LLM agents
+| Provider | Sign Up | Key format |
+|---|---|---|
+| **Groq** (Auditor) | [console.groq.com](https://console.groq.com) → API Keys | `gsk_...` |
+| **Cerebras** (Historian) | [cloud.cerebras.ai](https://cloud.cerebras.ai) → API Keys | `csk_...` |
+| **Mistral** (Critic) | [console.mistral.ai](https://console.mistral.ai) → API Keys | `...` |
+| **OpenRouter** (NegotiatedSearch) | [openrouter.ai](https://openrouter.ai) → Keys | `sk-or-...` |
 
-# Submit verdict
-curl -X POST /step -d '{"action": 9}'  # submit_verdict_misinfo
-
-# Get graded score
-curl /episodes/{id}/grade
+Then in your `.env`:
+```env
+OPENAI_API_KEY=gsk_...          # Groq key
+CEREBRAS_API_KEY=csk_...        # Cerebras key
+MISTRAL_API_KEY=...             # Mistral key
+OPENROUTER_API_KEY=sk-or-...    # OpenRouter key
 ```
 
-## Baseline Results
+---
 
-| Task | Difficulty | Heuristic | LLM (Groq) |
-|---|---|---|---|
-| fabricated_stats | Easy | ~35% | ~70% |
-| verified_fact | Easy | ~45% | ~80% |
-| out_of_context | Medium | ~30% | ~65% |
-| politifact_liar | Medium | ~25% | ~60% |
-| satire_news | Medium | ~30% | ~65% |
-| coordinated_campaign | Hard | ~40% | ~85% |
-| image_forensics | Hard | ~20% | ~75% |
-| sec_fraud | Hard | ~25% | ~68% |
+## Project Structure
 
-## Design Decisions
-
-**Why graph-based observation?** Misinformation investigation is 
-inherently relational — the same claim means different things 
-depending on who is amplifying it, when it appeared, and what 
-authoritative sources say. A flat observation cannot capture this 
-structure. FORGE maintains an explicit `ClaimGraph` where nodes 
-are sources and edges represent support/contradiction/amplification 
-relationships.
-
-**Why potential-based shaping?** Binary terminal rewards provide 
-no learning signal until the final step. Potential-based shaping 
-(Ng et al., 1999) provides dense step-level rewards that are 
-guaranteed policy-invariant — the optimal policy under the shaped 
-reward is identical to the optimal policy under the sparse reward.
-
-**Why 5 verdict classes?** Binary real/fake classification is 
-insufficient for real content moderation. FORGE distinguishes 
-between fabricated (entirely made up), out_of_context (real content 
-wrong context), satire (intentional parody), misinfo (false claims), 
-and real — matching the taxonomy used by professional fact-checkers.
-
-## Architecture
-```text
-FORGE/
+```
+Mis_Information Forensic/
+│
+├── app.py                      # Unified Gradio UI (FORGE v1 + FORGE-MA tabs)
+├── config.py                   # Unified configuration (multi-provider)
+├── inference.py                # Model inference utilities
+├── pyproject.toml              # Unified dependencies (v2.1.0)
+├── requirements.txt            # Full merged requirements
+├── .env.example                # Template — copy to .env and fill keys
+│
 ├── env/
-│   ├── misinfo_env.py      Gymnasium-compatible environment
-│   ├── claim_graph.py      Evidence graph data structure
-│   ├── reward.py           Potential-based reward shaping
-│   └── tasks/              8 task generators + programmatic graders
+│   ├── misinfo_env.py          # FORGE v1: Gymnasium env (8 tasks, 13 actions)
+│   ├── claim_graph.py          # FORGE v1: dict-based ClaimGraph
+│   ├── reward.py               # FORGE v1: reward functions
+│   ├── tasks/                  # 8 misinformation task generators
+│   ├── forge_env.py            # FORGE-MA: adversarial Gymnasium env
+│   ├── claim_graph_ma.py       # FORGE-MA: dataclass ClaimGraph (ClaimNode/EvidenceEdge)
+│   ├── primitives.py           # FORGE-MA: PrimitiveType enum, K_MAX=4
+│   ├── episode_output.py       # FORGE-MA: immutable episode result
+│   ├── oversight_report.py     # FORGE-MA: markdown report generator
+│   └── report_manager.py       # FORGE-MA: Markovian evidence reports
+│
 ├── agents/
-│   ├── llm_agent.py        FSM-constrained ReAct LLM agent
-│   ├── heuristic_agent.py  Deterministic baseline (offline)
-│   ├── ppo_agent.py        PPO training agent
-│   └── adversarial/        GAN-style self-play agents
-├── tools/                  Forensic tool implementations
-│   ├── query_source.py     Wikipedia + DuckDuckGo
-│   ├── trace_origin.py     Wayback Machine + Wikidata
-│   ├── cross_reference.py  Wikipedia multi-article
-│   ├── entity_link.py      Wikidata SPARQL
-│   ├── temporal_audit.py   Wayback timestamp verification
-│   └── network_cluster.py  Graph-based bot detection
-├── server/                 FastAPI OpenEnv REST API
-└── inference.py            OpenEnv evaluation script
+│   ├── llm_agent.py            # FORGE v1: LLM agent (OpenAI / Groq)
+│   ├── ppo_agent.py            # FORGE v1: PPO agent
+│   ├── gnn_policy.py           # FORGE v1: GNN policy
+│   ├── heuristic_agent.py      # FORGE v1: rules-based agent
+│   ├── llm_agent_ma.py         # FORGE-MA: multi-provider LLM agent (Groq/Cerebras/Mistral/OpenRouter)
+│   └── expert_reviewer_agent.py# FORGE-MA: Dawid-Skene / Ising ensemble
+│
+├── red_team/                   # FORGE-MA
+│   ├── hae_model.py            # HAE: 1-layer GNN, MEAN, 32-dim
+│   ├── red_agent.py            # Adversarial action proposer
+│   └── action_validator.py     # K_MAX + DISARM gates
+│
+├── blue_team/                  # FORGE-MA
+│   ├── gin_predictor.py        # BlueGIN: 2-layer, SUM, 64-dim
+│   ├── narrative_critic.py     # Society agent 4 — Mistral (P4/P8)
+│   ├── negotiated_search.py    # V_ensemble: Cerebras + Mistral pre-analysis
+│   ├── replay_buffer.py        # Episode replay buffer
+│   └── society_of_thought.py   # 4-agent orchestration (cross-provider consensus)
+│
+├── rewards/                    # FORGE-MA
+│   ├── hierarchical_reward.py  # Composite R_total shaper
+│   ├── tactic_edit_dist.py     # Normalized Levenshtein TED
+│   ├── tactic_pr.py            # Precision / Recall / F1
+│   ├── plausibility.py         # Deterministic plausibility scorer
+│   ├── budget_penalty.py       # Step cost + over-budget shaping
+│   └── red_step_reward.py      # Per-step Red agent reward
+│
+├── evaluation/                 # FORGE-MA
+│   └── evaluator.py            # Layer-9 benchmark metrics
+│
+├── data/
+│   └── disarm_registry.json    # FORGE-MA: 8 T-prefix DISARM TTPs
+│
+├── training/
+│   ├── train_ppo.py            # FORGE v1: PPO training loop
+│   ├── curriculum.py           # FORGE v1: curriculum scheduler
+│   ├── eval.py                 # FORGE v1: evaluation utilities
+│   └── ppo_trainer_ma.py       # FORGE-MA: PPO trainer + TrainingStats
+│
+├── tools/                      # FORGE v1: tool registry
+│   ├── tool_registry.py
+│   ├── query_source.py
+│   ├── trace_origin.py
+│   ├── cross_reference.py
+│   ├── entity_link.py
+│   ├── temporal_audit.py
+│   └── network_cluster.py
+│
+├── server/                     # FORGE v1: FastAPI REST server
+│   └── app.py
+│
+└── tests/
+    ├── test_graders.py         # FORGE v1 tests
+    └── forge_ma/               # FORGE-MA test suite (126 tests)
+        ├── conftest.py
+        ├── test_layer3_agents.py
+        ├── test_layer4_red_team.py
+        ├── test_layer5_rewards.py
+        ├── test_layer6_output.py
+        ├── test_layer7_training.py
+        ├── test_layer9_evaluation.py
+        ├── test_plausibility_timing.py
+        ├── test_primitives.py
+        └── test_tactic_edit_dist.py
 ```
+
+---
+
+## FORGE-MA Test Coverage
+
+| Layer | Module | Tests | Status |
+|---|---|---|---|
+| 0 — Foundation | `primitives`, `tactic_edit_dist`, `plausibility` | 33+ | ✅ |
+| 1 — Environment | `claim_graph_ma`, `report_manager`, `tactic_pr` | — | ✅ |
+| 2 — GIN | `gin_predictor` | — | ✅ |
+| 3 — Agents | `llm_agent_ma`, `society_of_thought`, `narrative_critic` | 11 | ✅ |
+| 4 — Red Team | `hae_model`, `red_agent`, `action_validator` | 28 | ✅ |
+| 5 — Rewards | `hierarchical_reward`, `budget_penalty` | 29 | ✅ |
+| 6 — Output | `episode_output`, `oversight_report` | 23 | ✅ |
+| 7 — Training | `forge_env`, `ppo_trainer_ma` | 19 | ✅ |
+| **Total** | | **126** | **✅** |
+
+---
+
+## License
+MIT

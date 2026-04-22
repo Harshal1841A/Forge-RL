@@ -117,20 +117,21 @@ class LLMAgent:
         self,
         use_ensemble: bool = False,
         temperature: float = 0.2,
+        api_key: Optional[str] = None,
     ):
         self.temperature = temperature
         self.use_ensemble = use_ensemble
         self._fsm_state = "INITIAL"
         self._history: List[Dict] = []
         self._openai_client = None
-        self._init_openai()
+        self._init_openai(api_key)
 
-    def _init_openai(self):
+    def _init_openai(self, api_key: Optional[str] = None):
         try:
             from openai import OpenAI
             self._openai_client = OpenAI(
                 base_url=config.API_BASE_URL,
-                api_key=config.OPENAI_API_KEY or config.HF_TOKEN or "dummy-key"
+                api_key=api_key or config.OPENAI_API_KEY or config.HF_TOKEN or "dummy-key"
             )
             logger.info("OpenAI client initialised with base_url=%s", config.API_BASE_URL)
         except ImportError:
