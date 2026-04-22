@@ -15,7 +15,7 @@ import csv
 import logging
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Optional
 
@@ -133,7 +133,7 @@ class PolitifactTask(BaseTask):
             text=f'[CLAIM] {speaker} ({party}): "{statement}"',
             source_url=f"https://www.politifact.com/factchecks/claim/{seed}/",
             domain="politifact.com",
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 90)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 90)),
             author=speaker,
             virality_score=rng.uniform(0.4, 0.9),
             trust_score=0.5,   # The CLAIM's credibility is unknown at start, not PolitiFact's
@@ -158,7 +158,7 @@ class PolitifactTask(BaseTask):
             text=f"Viral post repeating claim about {subject} without context.",
             source_url=f"https://{amp_domain}/post/{rng.randint(100000, 999999)}",
             domain=amp_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 30)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 30)),
             virality_score=rng.uniform(0.7, 0.99),
             trust_score=0.3,
         )
@@ -180,7 +180,7 @@ class PolitifactTask(BaseTask):
             ),
             source_url=f"https://{fc_domain}/factchecks/{seed}/",
             domain=fc_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 14)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 14)),
             virality_score=0.2,
             trust_score=0.92,
         )
@@ -205,7 +205,7 @@ class PolitifactTask(BaseTask):
                 text=f"Partial retelling of the claim, missing key context (level {i+1}).",
                 source_url=f"https://blog-{rng.randint(1, 99)}.net/opinion/{seed}",
                 domain=f"opinonblog{i}.net",
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(15, 60)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(15, 60)),
                 virality_score=rng.uniform(0.3, 0.6),
                 trust_score=0.25,
             )
@@ -228,7 +228,7 @@ class PolitifactTask(BaseTask):
                 ),
                 source_url=f"https://c-span.org/transcript/{seed}",
                 domain="c-span.org",
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(30, 120)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(30, 120)),
                 virality_score=0.01,
                 trust_score=0.98,
             )

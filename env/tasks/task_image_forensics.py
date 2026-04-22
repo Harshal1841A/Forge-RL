@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
@@ -123,7 +123,7 @@ class ImageForensicsTask(BaseTask):
             text=scenario["claim"],
             source_url=f"https://{scenario['source_domain']}/post/{rng.randint(1000, 9999)}",
             domain=scenario["source_domain"],
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 14)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 14)),
             virality_score=rng.uniform(0.7, 0.99),
             trust_score=trust_score,
             metadata={
@@ -167,7 +167,7 @@ class ImageForensicsTask(BaseTask):
             ),
             source_url="https://fotoforensics.com/analysis",
             domain="fotoforensics.com",
-            timestamp=datetime.utcnow() - timedelta(hours=rng.randint(1, 48)),
+            timestamp=datetime.now(timezone.utc) - timedelta(hours=rng.randint(1, 48)),
             virality_score=0.05,
             trust_score=0.85,
             metadata={"forensics_type": "ela", "ela_score": ela_score},
@@ -196,7 +196,7 @@ class ImageForensicsTask(BaseTask):
         else:
             deb_text = (
                 f"Reverse image search: original photo dated "
-                f"{(datetime.utcnow() - timedelta(days=rng.randint(365, 2000))).strftime('%Y-%m-%d')} "
+                f"{(datetime.now(timezone.utc) - timedelta(days=rng.randint(365, 2000))).strftime('%Y-%m-%d')} "
                 f"— not from the claimed time/location."
             )
             deb_rel = "debunks"
@@ -206,7 +206,7 @@ class ImageForensicsTask(BaseTask):
             text=deb_text,
             source_url=f"https://{deb_domain}/fact-check/{rng.randint(10000, 99999)}",
             domain=deb_domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 7)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 7)),
             virality_score=0.1,
             trust_score=0.93,
         )
@@ -229,7 +229,7 @@ class ImageForensicsTask(BaseTask):
                 text=f"Automated account amplifying the image claim (bot account {i+1}).",
                 source_url=f"https://twitter.com/bot_account_{rng.randint(1000, 9999)}",
                 domain="twitter.com",
-                timestamp=datetime.utcnow() - timedelta(hours=rng.randint(1, 72)),
+                timestamp=datetime.now(timezone.utc) - timedelta(hours=rng.randint(1, 72)),
                 virality_score=rng.uniform(0.5, 0.85),
                 trust_score=0.05,
                 metadata={"is_bot": True},
@@ -253,7 +253,7 @@ class ImageForensicsTask(BaseTask):
                 ),
                 source_url="https://forensicarchive.org/exif-reconstruction/report",
                 domain="forensicarchive.org",
-                timestamp=datetime.utcnow() - timedelta(hours=rng.randint(2, 24)),
+                timestamp=datetime.now(timezone.utc) - timedelta(hours=rng.randint(2, 24)),
                 virality_score=0.01,
                 trust_score=0.92,
                 metadata={"forensics_type": "metadata_reconstruction", "definitive": True},

@@ -7,7 +7,7 @@ Label: real
 from __future__ import annotations
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
 
@@ -117,7 +117,7 @@ class VerifiedFactTask(BaseTask):
             text=template["text"],
             source_url=f"https://{domain}/news-{rng.randint(1000,9999)}",
             domain=domain,
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 30)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 30)),
             virality_score=rng.uniform(0.6, 0.95),
             trust_score=trust_score,
         )
@@ -143,7 +143,7 @@ class VerifiedFactTask(BaseTask):
             text=auth_text,
             source_url=f"https://{template['real_domain']}/official-report",
             domain=template["real_domain"],
-            timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 40)),
+            timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 40)),
             virality_score=0.1,
             trust_score=0.98,
         )
@@ -176,7 +176,7 @@ class VerifiedFactTask(BaseTask):
                 text=amp_text,
                 source_url=f"https://{amp_domain}/article-{rng.randint(100,999)}",
                 domain=amp_domain,
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(1, 40)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(1, 40)),
                 virality_score=rng.uniform(0.3, 0.8),
                 trust_score=amp_trust,
             )
@@ -208,7 +208,7 @@ class VerifiedFactTask(BaseTask):
                 text=primary_text,
                 source_url=f"https://{template['real_domain']}/data/raw-dataset-{rng.randint(100,999)}",
                 domain=template["real_domain"],
-                timestamp=datetime.utcnow() - timedelta(days=rng.randint(60, 180)),
+                timestamp=datetime.now(timezone.utc) - timedelta(days=rng.randint(60, 180)),
                 virality_score=0.01,
                 trust_score=0.99,
             )

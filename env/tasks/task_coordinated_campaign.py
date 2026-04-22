@@ -6,7 +6,7 @@ Tactics: amplify_via_bot_network, fabricate_statistic, strip_context, misattribu
 from __future__ import annotations
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge
 from env.tasks.task_base import BaseTask
 
@@ -84,7 +84,7 @@ class CoordinatedCampaignTask(BaseTask):
 
         graph_id = str(uuid.uuid4())
         root_id = "node_root"
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         root = ClaimNode(
             node_id=root_id,
