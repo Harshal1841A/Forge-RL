@@ -68,7 +68,14 @@ Our sophisticated reward function incentivizes precise and efficient investigati
 
 ## 🚀 Quick Start Guide
 
-### 1. Installation
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Harshal1841A/Forge-RL.git
+cd Forge-RL
+```
+
+### 2. Installation
 
 Install the core dependencies:
 ```bash
