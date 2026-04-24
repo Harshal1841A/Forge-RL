@@ -40,8 +40,6 @@ export function CustomCursor() {
   // Framer springs for the cursor head
   const mouseX = useMotionValue(-300);
   const mouseY = useMotionValue(-300);
-  const ringX = useSpring(mouseX, { stiffness: 200, damping: 22, mass: 0.3 });
-  const ringY = useSpring(mouseY, { stiffness: 200, damping: 22, mass: 0.3 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -135,41 +133,6 @@ export function CustomCursor() {
         style={{ mixBlendMode: "screen" }}
       />
 
-      {/* Cursor head ring — aurora spinning gradient border */}
-      <motion.div
-        className="fixed top-0 left-0 pointer-events-none z-[9999]"
-        style={{ x: ringX, y: ringY, translateX: "-50%", translateY: "-50%" }}
-      >
-        {/* Spinning aurora ring */}
-        <motion.div
-          className="w-8 h-8 rounded-full flex items-center justify-center"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-          style={{
-            background: `conic-gradient(
-              #06b6d4, #34d399, #a78bfa, #f472b6, #fb7185, #06b6d4
-            )`,
-            padding: "1.5px",
-          }}
-        >
-          <div className="w-full h-full rounded-full bg-black/85" />
-        </motion.div>
-
-        {/* Pulsing glow on ring */}
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          animate={{
-            boxShadow: [
-              "0 0 6px 2px #06b6d480",
-              "0 0 14px 5px #a78bfa80",
-              "0 0 10px 3px #f472b680",
-              "0 0 14px 5px #34d39980",
-              "0 0 6px 2px #06b6d480",
-            ],
-          }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </motion.div>
 
       {/* Cursor dot — sharp center */}
       <motion.div
