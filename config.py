@@ -62,19 +62,29 @@ TOOL_CALL_TIMEOUT_SEC: float = 8.0
 TOOL_CACHE_TTL_SEC: int = 21600      # 6 hours
 
 # ─── Reward Shaping ───────────────────────────────────────────────────────────
-REWARD_CORRECT_VERDICT: float = 1.0
-REWARD_WRONG_VERDICT: float = -0.2       # FIX: was 0.0 — must be negative so false-positive penalty survives clipping
-REWARD_FALSE_POSITIVE: float = -0.15     # penalty for mislabelling real as misinfo
-REWARD_MANIPULATION_FLAG: float = 0.15
-REWARD_MANIPULATION_PENALTY: float = -0.10  # penalty for false manipulation flag
-REWARD_STEP_PENALTY: float = -0.02
-REWARD_DUPLICATE_TOOL_PENALTY: float = -0.05
-REWARD_CLIP_MIN: float = 0.001             # Strict non-negative bound (0-1) per organizer rules
-REWARD_CLIP_MAX: float = 0.999
-POTENTIAL_W1: float = 0.35  # evidence coverage weight
-POTENTIAL_W2: float = 0.25  # source diversity weight
-POTENTIAL_W3: float = 0.25  # contradiction surface area
-POTENTIAL_W4: float = 0.15  # FIX: was unused — now wired into compute_potential() via network_diameter
+# Clip bounds (open interval for TED scorer compliance)
+REWARD_CLIP_MIN: float = -1.0
+REWARD_CLIP_MAX: float = 1.0
+
+# Terminal verdict rewards
+REWARD_CORRECT_VERDICT: float    = 0.75
+REWARD_WRONG_VERDICT: float      = -0.40
+REWARD_FALSE_POSITIVE: float     = -0.20   # extra penalty: misinfo flagged on real content
+
+# Step-level signals
+REWARD_STEP_PENALTY: float          = -0.02   # small cost per action taken
+REWARD_DUPLICATE_TOOL_PENALTY: float = -0.10  # penalty for repeated tool call
+
+# Manipulation detection signals
+REWARD_MANIPULATION_FLAG: float    =  0.15   # correct flag of manipulation
+REWARD_MANIPULATION_PENALTY: float = -0.10   # missed or false manipulation flag
+
+# ─── Potential-Based Shaping Weights Φ(s) ─────────────────────────────────────
+# Φ(s) = w1·coverage + w2·diversity + w3·contradiction_area + w4·network_diameter
+POTENTIAL_W1: float = 0.40   # evidence coverage weight
+POTENTIAL_W2: float = 0.25   # source diversity weight
+POTENTIAL_W3: float = 0.20   # contradiction surface area weight
+POTENTIAL_W4: float = 0.15   # network diameter weight
 
 
 # ─── RL Training ──────────────────────────────────────────────────────────────

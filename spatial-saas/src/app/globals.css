@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Hide native cursor site-wide — replaced by CustomCursor component */
+  *, *::before, *::after {
+    cursor: none !important;
+  }
+
+  html,
+  body {
+    @apply antialiased scroll-smooth;
+    background-color: theme('colors.background');
+    color: theme('colors.foreground');
+  }
+
+  ::selection {
+    @apply bg-cyan-500/30 text-white;
+  }
+
+  /* Custom range input thumb for depth slider */
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #06b6d4, #9333ea);
+    cursor: none;
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #06b6d4, #9333ea);
+    cursor: none;
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+  }
+}
+
+@layer utilities {
+  /* Light glassmorphism (hero / navbar / feature cards) */
+  .glass-panel {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+  }
+
+  /* Dark glassmorphism (FORGE command center) */
+  .glass-dark {
+    @apply bg-slate-900/40 backdrop-blur-[60px] border border-white/8
+           shadow-[0_0_100px_rgba(0,255,255,0.04),inset_0_1px_0_rgba(255,255,255,0.06)];
+  }
+
+  /* Canvas utility */
+  .canvas-container {
+    @apply absolute inset-0 -z-10 h-full w-full pointer-events-none;
+  }
+
+  /* Iridescent gradient for hero headline */
+  .bg-iridescent {
+    background-image: linear-gradient(
+      135deg,
+      #06b6d4 0%,
+      #a855f7 40%,
+      #ec4899 70%,
+      #06b6d4 100%
+    );
+    background-size: 200% auto;
+    animation: iridescent-shift 6s linear infinite;
+  }
+
+  @keyframes iridescent-shift {
+    0%   { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* Aurora color cycle — used by cursor ring */
+  @keyframes aurora-spin {
+    0%   { filter: hue-rotate(0deg)   brightness(1.2); }
+    25%  { filter: hue-rotate(80deg)  brightness(1.4); }
+    50%  { filter: hue-rotate(160deg) brightness(1.2); }
+    75%  { filter: hue-rotate(240deg) brightness(1.4); }
+    100% { filter: hue-rotate(360deg) brightness(1.2); }
+  }
+
+  /* Scan-line overlay for FORGE panel chrome feel */
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 255, 255, 0.015) 2px,
+      rgba(0, 255, 255, 0.015) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Neon glow button effects */
+  .btn-forge-primary {
+    @apply bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold
+           border border-cyan-400/40 rounded-xl
+           shadow-[0_0_20px_rgba(0,255,255,0.2)]
+           hover:shadow-[0_0_35px_rgba(0,255,255,0.4)]
+           transition-all duration-200;
+  }
+
+  .btn-forge-secondary {
+    @apply bg-black/40 border border-white/10 text-white font-bold rounded-xl
+           hover:border-white/20 transition-all duration-200;
+  }
+}

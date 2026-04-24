@@ -14,21 +14,27 @@ Instead of relying on static strings, this case study utilizes **dynamic LLM pro
 
 FORGE-MA operates on legitimate, pre-trained neural network checkpoints developed via a 50-generation adversarial curriculum learning pipeline.
 
-### 1. Mathematical Convergence
-Our Blue Team's Graph Isomorphism Network (GIN) Specialist model achieved undeniable mathematical convergence during the pretraining phase:
-* **Initial Online Loss:** `66.74`
-* **Final Converged Loss:** **`0.78`**
+### 1. OpenEnv-Compliant RL Environment
+- 9 task types, 13-action discrete space, reward range [-1.0, 1.0]
+- Full Gymnasium interface: reset() / step() / grade()
+- Docker image + HuggingFace Space deployment
+- openenv validate passes
 
-### 2. True Adversarial RL
-We resolved critical gradient isolation issues. The Red Team's Hierarchical Adversarial Encoder (HAE) is explicitly tied to the PyTorch optimizer (`use_trl=True`). The adversary is actively learning to mutate claims and evade detection, providing a continuously evolving challenge for the defense.
+### 2. Adversarial Multi-Agent Architecture
+- Red Team (HAE: 1-layer MEAN-agg GNN, 32-dim) vs Blue Team (GIN: 2-layer SUM-agg, 64-dim)
+- Co-evolutionary self-play: run `python pretrain.py` to generate training checkpoints
+- Hierarchical reward shaping (TED × 0.40, F1 × 0.30, Δplausibility × 0.20 + consensus/expert/budget bonuses)
+- Anti-reward-hacking: chain entropy bonus + chain length penalty
 
-### 3. "No-Crash" Resilience Guarantees
-We engineered the multi-agent LLM system to never fail on stage. 
-* Procedural generation gracefully degrades to highly-curated thematic templates if API rate limits are hit.
-* If any of the four AI providers experience downtime, the `LLMAgent` falls back to deterministic mock logic, ensuring the presentation dashboard remains fully functional.
+### 3. Multi-Provider Society of Thought
+- 4 agents, 4 different AI companies: Groq (Auditor), Cerebras (Historian), Mistral (Critic), OpenRouter (NegotiatedSearch)
+- No shared model bias by design
+- GIN topology hint propagated to all LLM agents before verdict
 
-### 4. Fleet AI Compliance & Export
-To satisfy the Fleet AI category requirements, the environment automatically generates machine-readable forensic evidence bundles compliant with the **STIX 2.1** standard. These reports are output directly to the `graphify-out/` directory upon episode completion.
+### 4. Production-Grade Server Infrastructure
+- FastAPI with circuit breakers, retry-with-jitter, reservoir-sampled latency metrics (p50/p95/p99)
+- STIX 2.1 forensic bundle export
+- 500-episode in-memory store with LRU eviction
 
 ---
 

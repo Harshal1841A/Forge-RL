@@ -78,6 +78,11 @@ def create_app() -> FastAPI:
     app.include_router(grade_router, prefix="/episodes", tags=["Grading"])
 
     # ── Static endpoints ──────────────────────────────────────────────────────
+    from fastapi.responses import RedirectResponse
+    @app.get("/", tags=["System"])
+    async def root():
+        return RedirectResponse(url="/docs")
+
     @app.get("/health", tags=["System"])
     async def health():
         return {
@@ -85,10 +90,10 @@ def create_app() -> FastAPI:
             "env": "forge",
             "version": "1.0.0",
             "openenv_compliant": True,
-            "tasks": 8,
+            "tasks": 9,
             "action_space": 13,
             "observation_shape": 3859,
-            "reward_range": [0.001, 0.999],
+            "reward_range": [-1.0, 1.0],
         }
 
     @app.get("/tasks", tags=["System"])
@@ -144,26 +149,31 @@ def create_app() -> FastAPI:
 
     @app.get("/leaderboard", tags=["System"])
     async def leaderboard():
-        from server.routes.grade import GRADE_LOG
-        from collections import defaultdict
-        if not GRADE_LOG:
+        from server.routes.grade import get_db
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT 
+                    agent_id,
+                    AVG(correct) as accuracy,
+                    AVG(total_reward) as mean_reward,
+                    COUNT(*) as episodes_played
+                FROM grades
+                GROUP BY agent_id
+                ORDER BY accuracy DESC
+            """).fetchall()
+            
+        if not rows:
             return {"entries": [], "message": "No completed episodes yet."}
-        stats: dict = defaultdict(lambda: {"rewards": [], "correct": [], "episodes": 0})
-        for entry in GRADE_LOG:
-            aid = entry.get("agent_id", "anonymous")
-            stats[aid]["rewards"].append(entry["total_reward"])
-            stats[aid]["correct"].append(entry["correct"])
-            stats[aid]["episodes"] += 1
+            
         board = [
             {
-                "agent_id": aid,
-                "accuracy": round(sum(s["correct"]) / len(s["correct"]), 4),
-                "mean_reward": round(sum(s["rewards"]) / len(s["rewards"]), 4),
-                "episodes_played": s["episodes"],
+                "agent_id": row["agent_id"],
+                "accuracy": round(row["accuracy"], 4),
+                "mean_reward": round(row["mean_reward"], 4),
+                "episodes_played": row["episodes_played"]
             }
-            for aid, s in stats.items()
+            for row in rows
         ]
-        board.sort(key=lambda x: x["accuracy"], reverse=True)
         return {"entries": board}
 
     @app.exception_handler(Exception)

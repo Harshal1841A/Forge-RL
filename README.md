@@ -1,127 +1,36 @@
-<div align="center">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-# 🛡️ FORGE: Unified Misinformation Forensics Platform
-**v2.1** — *Adversarial Multi-Agent Reinforcement Learning Edition*
+## Getting Started
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Meta × HuggingFace](https://img.shields.io/badge/Hackathon-OpenEnv_Round_2-blueviolet.svg)](#)
-
-*Fact-checking isn't just classification. It's an investigation.*
-
-</div>
-
----
-
-## 📖 Overview
-
-**FORGE** (Forensic Operation & Research Graph Environment) bridges the gap between simple true/false classification and authentic human investigative processes. By modeling fact-checking as a sequential investigation across a dynamic toolset, FORGE sets a new standard for AI-driven forensics.
-
-**FORGE v2.1** merges our foundational Gymnasium environment with our state-of-the-art **Multi-Agent Society of Thought**, introducing a revolutionary **Multi-Provider Agent Architecture** that eliminates shared-model bias and introduces adversarial curriculum learning.
-
-| Core System | Functionality |
-|---|---|
-| **FORGE The Engine**<br>`env/misinfo_env.py` | Production-grade Gymnasium environment supporting 8 forensic task types, a comprehensive tool registry, a Graph Neural Network (GNN) policy, and PPO training. |
-| **FORGE-MA The Brain**<br>`env/forge_env.py` | Adversarial multi-agent extension featuring a Red Team (Hierarchical Adversarial Encoder) vs. a Blue Team (Society of Thought + Graph Isomorphism Network), optimized via hierarchical reward shaping. |
-
----
-
-## 🧠 The Multi-Provider Moat
-
-To prevent homogeneous reasoning loops and shared training data biases, FORGE-MA implements a **zero-shared-bias architecture**. Each specialized agent role is powered by a different frontier AI provider.
-
-| Forensic Role | AI Provider | Selected Model | Strategic Advantage |
-|---|---|---|---|
-| **Forensic Auditor** | 🟣 Groq | `llama3-70b-8192` | Unparalleled factual and source reasoning. |
-| **Context Historian** | 🔵 Cerebras | `llama3.1-70b` | High-speed temporal and provenance detection. |
-| **Narrative Critic** | 🟠 Mistral | `mistral-small-latest` | Exceptional at decoding narrative style and satire. |
-| **NegotiatedSearch** | 🟢 OpenRouter | `llama-3-8b:free` | Ultra-fast tool-selection and routing pre-pass. |
-
-> **Unanimous Consensus:** A verdict flagged by all four distinct providers represents a rigorously cross-validated, high-confidence conclusion.
-> 
-> *Note: All configured providers offer generous free tiers. The system gracefully degrades to deterministic mock fallbacks if API keys are missing, ensuring uninterrupted execution.*
-
----
-
-## 🏗️ System Architecture
-
-### The Blue Team: Society of Thought
-Our defensive mechanism relies on a consensus-driven approach, combining large language models with specialized graph-based reasoning.
-
-*   **Forensic Auditor [Groq]:** Leads the core investigation.
-*   **Context Historian [Cerebras]:** Analyzes the temporal framing of claims.
-*   **Narrative Critic [Mistral]:** Evaluates the stylistic and rhetorical features.
-*   **Graph Specialist [BlueGIN]:** A 2-layer Graph Isomorphism Network (SUM pooling, 64-dim) that processes the evolving evidence topology.
-
-### The Red Team: Adversarial Generation
-*   **HAE Adversary:** A Hierarchical Adversarial Encoder (MEAN pooling, 32-dim) paired with an Action Validator, designed to intelligently mutate claims and evade detection.
-
-### Hierarchical Reward Shaper
-Our sophisticated reward function incentivizes precise and efficient investigations:
-*   `TED × 0.40`: Tactic chain edit distance (closeness to truth).
-*   `F1 × 0.30`: Tactic precision/recall.
-*   `PLB × 0.20`: Plausibility delta.
-*   `Consensus & Expert Bonuses`: Rewards for unanimous cross-model agreement.
-*   `Budget Penalty`: Enforces efficiency ($-0.01$/step, heavily penalized if over-budget).
-
----
-
-## 🚀 Quick Start Guide
-
-### 1. Clone the Repository
+First, run the development server:
 
 ```bash
-git clone https://github.com/Harshal1841A/Forge-RL.git
-cd Forge-RL
-```
-
-### 2. Installation
-
-Install the core dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-*(Optional)* Install FORGE-MA GPU packages for advanced training:
-```bash
-pip install torch-geometric trl stix2
-```
-
-### 2. Configuration
-Copy the environment template and configure your free API keys:
-```bash
-cp .env.example .env
-# Edit .env with your provider keys
-```
-
-### 3. Launch the Backend API
-Start the FastAPI server:
-```bash
-python -m uvicorn server.main:app --host 0.0.0.0 --port 7860
-```
-*Interactive API docs available at `http://localhost:7860/docs`.*
-
-### 4. Launch the Frontend
-Start the Next.js UI (in a separate terminal):
-```bash
-cd frontend
-npm install
 npm run dev
-```
-*The dashboard will be available at `http://localhost:3000`.*
-
-### 5. Testing
-Run the comprehensive test suites to verify integrity:
-```bash
-# Run core FORGE v1 tests
-python -m pytest tests/test_graders.py -v
-
-# Run the full FORGE-MA adversarial test suite (126 cases)
-python -m pytest tests/forge_ma -v
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
----
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-<div align="center">
-<i>Built with 🛡️ for a more truthful web.</i>
-</div>
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

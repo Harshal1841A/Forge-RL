@@ -104,6 +104,18 @@ def pretrain(n_generations: int = 50, n_episodes: int = 4):
         torch.save(trainer.env.red_agent.hae.state_dict(), str(HAE_CKPT))
         log(f"HAE checkpoint saved -> {HAE_CKPT}")
 
+        # Log training curve
+        import json
+        with open(ROOT / "checkpoints" / "training_log.json", "w") as jf:
+            json.dump({
+                "n_generations": n_generations,
+                "n_episodes": n_episodes,
+                "min_rewards": trainer.stats.min_rewards if hasattr(trainer.stats, "min_rewards") else [],
+                "mean_rewards": trainer.stats.mean_rewards if hasattr(trainer.stats, "mean_rewards") else [],
+                "final_mean_reward": trainer.stats.mean_reward,
+                "elapsed_seconds": elapsed
+            }, jf, indent=2)
+        log("Training curve logged to checkpoints/training_log.json")
 
 if __name__ == "__main__":
     pretrain()

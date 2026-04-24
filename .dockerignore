@@ -1,0 +1,90 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test & dev artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Dev logs & diffs (your specific files)
+flake8_output.txt
+lint_errors.txt
+diff.txt
+diff_utf8.txt
+validation.log
+
+# Lock files (deps already installed via requirements.txt)
+uv.lock
+
+# Local env & secrets
+.env
+.env.*
+*.env
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache directories (your project-specific)
+cache/
+*.db
+*.sqlite
+
+# Training artifacts (not needed at runtime)
+training/
+runs/
+checkpoints/
+*.pt
+*.pth
+# Duplicate files at root
+/schemas.py
+/state.py
+/episode.py
+/step.py
+/grade.py
+/misinfo_env.py
+/claim_graph.py
+/reward.py
+/task_*.py
+/heuristic_agent.py
+/llm_agent.py
+/gnn_policy.py
+/ppo_agent.py
+/random_agent.py
+/cache_manager.py
+/tool_registry.py
+/cross_reference.py
+/entity_link.py
+/network_cluster.py
+/query_source.py
+/temporal_audit.py
+/trace_origin.py
+/curriculum.py
+/eval.py
+/train_ppo.py
+/self_play.py
+/generator_agent.py
+/run_selfplay.py
+/download_liar.py
+
+# Duplicate bare directories (real code is in env/ and server/)
+/tasks/
+/routes/
+/utils/
+/adversarial/

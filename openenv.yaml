@@ -1,8 +1,8 @@
 name: forge-ma
 version: 2.0.0
-description: "FORGE-MA: Multi-Agent Forensic RL Graph Environment for Misinformation Investigation (v2 - hierarchical multi-agent, co-evolutionary self-play)"
-author: "FORGE Team"
-tags: [openenv, multi-agent, self-play, misinformation]
+description: "FORGE-MA: Misinformation Inverse Forensics via Multi-Agent Adversarial RL. Blue Team Society of Thought reconstructs Red Team deception primitive chains."
+author: "FORGE-MA Team"
+tags: [openenv, multi-agent, adversarial, misinformation, inverse-forensics]
 
 tasks:
   - id: fabricated_stats
@@ -21,9 +21,13 @@ tasks:
     difficulty: easy
   - id: satire_news
     difficulty: medium
+  - id: plandemic
+    difficulty: hard
+
 docker:
   build: .
   port: 7860
+
 endpoints:
   reset:
     path: /reset
@@ -46,13 +50,26 @@ endpoints:
   rewards_schema:
     path: /rewards/schema
     method: GET
+  oversight_report:
+    path: /oversight-report/{episode_id}
+    method: GET
+  chain_metrics:
+    path: /chain-metrics/{episode_id}
+    method: GET
+  expert_review:
+    path: /expert-review/{episode_id}
+    method: GET
+  society_vote:
+    path: /society-vote/{episode_id}
+    method: GET
+
 observation_space:
-  type: Dict
-  keys:
-    claim_embed: {type: Box, shape: [384], dtype: float32}
-    tool_history: {type: Box, shape: [13], dtype: float32}
-    scalars: {type: Box, shape: [6], dtype: float32}
+  type: Box
+  shape: [3862]
+  dtype: float32
+
 action_space:
   type: Discrete
-  n: 13
+  n: 15
+
 reward_range: [0.001, 0.999]

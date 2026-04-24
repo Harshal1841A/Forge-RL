@@ -7,11 +7,32 @@ from fastapi import APIRouter, HTTPException
 from server.schemas import GradeResponse
 from server.state import EPISODE_STORE
 from env.misinfo_env import MisInfoForensicsEnv
+import sqlite3
 
 router = APIRouter()
 
-# In-memory grade log for leaderboard (replace with DB in production)
-GRADE_LOG: List[dict] = []
+DB_PATH = "forge.db"
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS grades (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                episode_id TEXT UNIQUE,
+                agent_id TEXT,
+                correct BOOLEAN,
+                total_reward REAL,
+                composite REAL
+            )
+        """)
+        conn.commit()
+
+init_db()
 
 
 # FIXED: /grades/summary must be registered BEFORE /{episode_id}/grade to prevent
@@ -20,11 +41,16 @@ GRADE_LOG: List[dict] = []
 @router.get("/grades/summary", tags=["Grading"])
 async def grade_summary():
     """Aggregate grade statistics across all completed episodes."""
-    if not GRADE_LOG:
+    with get_db() as conn:
+        row = conn.execute("SELECT COUNT(*) as n, AVG(correct) as acc, AVG(total_reward) as r_avg FROM grades").fetchone()
+    
+    n = row["n"] if row["n"] else 0
+    if n == 0:
         return {"episodes": 0, "message": "No graded episodes yet."}
-    n = len(GRADE_LOG)
-    acc = sum(g["correct"] for g in GRADE_LOG) / n
-    r_avg = sum(g["total_reward"] for g in GRADE_LOG) / n
+        
+    acc = row["acc"] if row["acc"] is not None else 0.0
+    r_avg = row["r_avg"] if row["r_avg"] is not None else 0.0
+    
     return {
         "total_episodes": n,
         "overall_accuracy": round(acc, 4),
@@ -117,12 +143,12 @@ async def get_grade(episode_id: str):
     )
 
     # Log for leaderboard
-    GRADE_LOG.append({
-        "episode_id": episode_id,
-        "agent_id": record.get("agent_id", "anonymous"),
-        "correct": correct,
-        "total_reward": record["total_reward"],
-        "composite": total,
-    })
+    agent_id = record.get("agent_id", "anonymous")
+    with get_db() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO grades (episode_id, agent_id, correct, total_reward, composite)
+            VALUES (?, ?, ?, ?, ?)
+        """, (episode_id, agent_id, correct, record["total_reward"], total))
+        conn.commit()
 
     return grade
