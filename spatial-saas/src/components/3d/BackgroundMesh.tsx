@@ -3,19 +3,25 @@
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useScroll } from "framer-motion";
+import type { MotionValue } from "framer-motion";
 
 /*  ═══════════════════════════════════════════════════════════════
     BackgroundMesh — Neural Nebula
     High-density, interactive particle field for the Hero section.
+    scrollY is passed as a prop from HeroSection (where useScroll
+    is already called in DOM context) to avoid a React context
+    boundary violation inside the R3F Canvas.
     ═══════════════════════════════════════════════════════════════ */
 
-const PARTICLE_COUNT = 800;
+const PARTICLE_COUNT = 6000;
 
-export function BackgroundMesh() {
+interface BackgroundMeshProps {
+  scrollY: MotionValue<number>;
+}
+
+export function BackgroundMesh({ scrollY }: BackgroundMeshProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const { viewport } = useThree();
-  const { scrollY } = useScroll();
   
   const timeRef = useRef(0);
   const actualSpeed = useRef(1);
@@ -65,8 +71,6 @@ export function BackgroundMesh() {
   }, []);
 
   useFrame((state, delta) => {
-    // Pause rendering when scrolled past the hero section
-    if (window.scrollY > window.innerHeight) return;
     if (!pointsRef.current) return;
 
     // Scroll speed sync

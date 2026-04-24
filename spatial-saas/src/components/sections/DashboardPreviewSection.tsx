@@ -95,7 +95,7 @@ export function DashboardPreviewSection() {
   const scaleUp = { hidden: { opacity: 0, scale: 0.95 }, show: { opacity: 1, scale: 1, transition: { duration: 0.7, ease: cubicEase } } };
 
   const PROTOCOLS = tasks.length > 0
-    ? tasks.map(t => ({ id: t.id, label: t.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) }))
+    ? tasks.map(t => ({ id: t.id, label: t.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) }))
     : [
         { id: "fabricated_stats", label: "Fabricated Stats" },
         { id: "satire_news", label: "Satire News" },
@@ -136,7 +136,7 @@ export function DashboardPreviewSection() {
               className="relative w-full rounded-[24px] overflow-hidden glass-dark scanlines shadow-2xl"
             >
               {/* Chrome bar */}
-              <div className="h-14 border-b border-white/8 flex items-center px-6 justify-between bg-black/20 gap-4">
+              <div className="h-14 border-b border-white/10 flex items-center px-6 justify-between bg-black/20 gap-4">
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center shadow-[0_0_12px_rgba(0,255,255,0.4)]">
                     <Shield className="w-4 h-4 text-white" />
@@ -192,7 +192,7 @@ export function DashboardPreviewSection() {
               <div className="flex flex-col lg:flex-row p-4 gap-4 min-h-[450px]">
                 {/* Thought Stream */}
                 <motion.div className="flex-1 flex flex-col gap-3" variants={slideLeft}>
-                  <div className="flex items-center gap-2 pb-2 border-b border-white/8">
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                     <Terminal className="w-3.5 h-3.5 text-cyan-500" />
                     <span className="text-[10px] font-bold text-cyan-500 tracking-widest">THOUGHT STREAM</span>
                   </div>
@@ -253,7 +253,7 @@ export function DashboardPreviewSection() {
 
                 {/* AI Core State */}
                 <motion.div className="w-full lg:w-[280px] flex flex-col gap-4" variants={slideRight}>
-                  <div className="flex items-center gap-2 pb-2 border-b border-white/8">
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                     <span className="text-[10px] font-bold text-cyan-500 tracking-widest">AI CORE STATE</span>
                   </div>
 

@@ -3,7 +3,7 @@
  * Connects Next.js spatial-saas frontend → FastAPI FORGE backend (localhost:8000)
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? ""; // Use relative paths for single-port proxying
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7860";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

@@ -9,7 +9,7 @@ powershell -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort 7860 -Err
 powershell -Command "Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue"
 
 echo [1/2] Starting FORGE-MA Backend Server (Port 7860)...
-start cmd /k "python -m uvicorn server.main:app --host 0.0.0.0 --port 7860"
+start cmd /k "py -m uvicorn server.main:app --host 0.0.0.0 --port 7860"
 
 echo [2/2] Starting FORGE-MA Frontend (Next.js - Port 3000)...
 cd spatial-saas

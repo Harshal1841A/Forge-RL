@@ -23,24 +23,22 @@ export function HeroSection() {
             style={{ width: "100%", height: "100%" }}
           >
             <Suspense fallback={null}>
-              <BackgroundMesh />
+              <BackgroundMesh scrollY={scrollY} />
             </Suspense>
           </Canvas>
         </div>
       </WebGLErrorBoundary>
 
-      <section className="relative h-screen z-10 flex items-center justify-center overflow-hidden">
-        <div className="min-h-screen flex items-center justify-center pointer-events-none">
-
+      <section className="relative h-[150vh] z-10">
+        <div className="sticky top-0 min-h-screen flex items-center justify-center overflow-hidden pointer-events-none">
           {/* Radial ambient glow overlays */}
           <div className="absolute inset-0 z-[1] pointer-events-none">
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-cyan-500/[0.04] blur-[120px]" />
             <div className="absolute bottom-1/4 right-1/3 w-[500px] h-[500px] rounded-full bg-fuchsia-500/[0.04] blur-[100px]" />
           </div>
 
-          {/* Foreground Content — headline only per spec */}
-          <motion.div className="relative z-10 container mx-auto px-6 max-w-7xl pt-20 pointer-events-auto">
-
+      {/* Foreground Content — headline only per spec */}
+          <motion.div style={{ scale: headlineScale, opacity: headlineOpacity }} className="relative z-10 container mx-auto px-6 max-w-7xl pt-20 pointer-events-auto">
             <div className="flex flex-col items-center text-center">
               <motion.h1
                 initial={{ opacity: 0, scale: 0.92 }}
