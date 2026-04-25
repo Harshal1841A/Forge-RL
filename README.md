@@ -1,11 +1,11 @@
 # FORGE-MA: Train LLMs to Investigate Misinformation via Adversarial RL
 
-[![Space](https://img.shields.io/badge/🤗-Live%20Demo-blue)](https://huggingface.co/spaces/NeuralHU/forge-ma)
+[![Space](https://img.shields.io/badge/🤗-Live%20Demo-blue)](https://huggingface.co/spaces/NeuralHU/forge-rl)
 [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](training/forge_grpo_colab.ipynb)
 
-> **[▶ Live Environment](https://huggingface.co/spaces/NeuralHU/forge-ma)** |
+> **[▶ Live Environment](https://huggingface.co/spaces/NeuralHU/forge-rl)** |
 > **[📓 Training Notebook](training/forge_grpo_colab.ipynb)** |
-> **[📝 Blog Post](https://huggingface.co/blog/NeuralHU/forge-ma)**
+> **[📝 Blog Post](https://huggingface.co/blog/NeuralHU/forge-rl)**
 
 ---
 
@@ -36,13 +36,13 @@ investigation as a Markov decision process.
 ## Quickstart
 
 ```bash
-pip install git+https://huggingface.co/spaces/NeuralHU/forge-ma
+pip install git+https://huggingface.co/spaces/NeuralHU/forge-rl
 ```
 
 ```python
 from forge_ma import ForgeEnv, ForgeAction
 
-with ForgeEnv(base_url="https://NeuralHU-forge-ma.hf.space").sync() as env:
+with ForgeEnv(base_url="https://NeuralHU-forge-rl.hf.space").sync() as env:
     obs = env.reset()
     print(obs.claim_text)              # the claim to investigate
     result = env.step(ForgeAction(action=0))   # query_source
