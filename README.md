@@ -36,7 +36,8 @@ investigation as a Markov decision process.
 ## Quickstart
 
 ```bash
-pip install git+https://huggingface.co/spaces/NeuralHU/forge-rl
+git clone https://huggingface.co/spaces/NeuralHU/forge-rl
+pip install ./forge-rl
 ```
 
 ```python
