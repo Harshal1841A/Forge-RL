@@ -1,0 +1,18 @@
+{
+  "weights": {
+    "query_source": 0.05679682279264558,
+    "trace_origin": 0.05679682279264558,
+    "cross_reference": 0.0962915571655406,
+    "request_context": 0.09921325714132126,
+    "entity_link": 0.09921325714132126,
+    "temporal_audit": 0.09921325714132126,
+    "network_cluster": 0.06004315609906855,
+    "flag_manipulation": 0.0962915571655406,
+    "submit_verdict_real": 0.06004315609906855,
+    "submit_verdict_misinfo": 0.05679682279264558,
+    "submit_verdict_satire": 0.06004315609906855,
+    "submit_verdict_out_of_context": 0.09921325714132126,
+    "submit_verdict_fabricated": 0.06004315609906855
+  },
+  "epsilon": 0.14850375
+}

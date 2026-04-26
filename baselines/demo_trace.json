@@ -1,0 +1,50 @@
+{
+  "claim_id": null,
+  "steps": [
+    {
+      "step": 1,
+      "tool": "query_source",
+      "reward": 0.261,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 2,
+      "tool": "trace_origin",
+      "reward": -0.022333333333333327,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 3,
+      "tool": "temporal_audit",
+      "reward": -0.022333333333333327,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 4,
+      "tool": "cross_reference",
+      "reward": -0.022333333333333327,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 5,
+      "tool": "entity_link",
+      "reward": -0.022333333333333327,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 6,
+      "tool": "network_cluster",
+      "reward": -0.022333333333333327,
+      "obs_summary": "Obs dim: 3859"
+    },
+    {
+      "step": 7,
+      "tool": "flag_manipulation",
+      "reward": -1.0,
+      "obs_summary": "Obs dim: 3859"
+    }
+  ],
+  "total_reward": -0.5089999999999999,
+  "ted": 0.001,
+  "graph_nodes": 3
+}

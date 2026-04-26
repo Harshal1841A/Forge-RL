@@ -1,0 +1,11 @@
+{
+  "name": "forge-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd spatial-saas && npm run dev",
+    "build": "cd spatial-saas && npm run build",
+    "start": "cd spatial-saas && npm run start",
+    "lint": "cd spatial-saas && npm run lint"
+  }
+}

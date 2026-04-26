@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  # ── FORGE API Server ─────────────────────────────────────────────────────────
+  forge-api:
+    build: .
+    container_name: forge_api
+    ports:
+      - "7860:7860"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - API_BASE_URL=${API_BASE_URL:-https://api.groq.com/openai/v1}
+      - MODEL_NAME=${MODEL_NAME:-llama3-8b-8192}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=7860
+    volumes:
+      - ./checkpoints:/app/checkpoints
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - forge-net
+
+  # ── Next.js Frontend ─────────────────────────────────────────────────────────
+  forge-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: forge_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://forge-api:7860
+    depends_on:
+      - forge-api
+    restart: unless-stopped
+    networks:
+      - forge-net
+
+
+  # ── PPO Training Worker (optional) ────────────────────────────────────────────
+  forge-train:
+    build: .
+    container_name: forge_trainer
+    command:
+      - python
+      - -m
+      - training.train_ppo
+      - --iterations
+      - "500"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - API_BASE_URL=${API_BASE_URL:-https://api.groq.com/openai/v1}
+      - MODEL_NAME=${MODEL_NAME:-llama3-8b-8192}
+    volumes:
+      - ./checkpoints:/app/checkpoints
+    networks:
+      - forge-net
+    profiles:
+      - training
+
+  # ── Self-Play Training Worker (optional) ──────────────────────────────────────
+  forge-selfplay:
+    build: .
+    container_name: forge_selfplay
+    command:
+      - python
+      - scripts/run_selfplay.py
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - API_BASE_URL=${API_BASE_URL:-https://api.groq.com/openai/v1}
+      - MODEL_NAME=${MODEL_NAME:-llama3-8b-8192}
+    volumes:
+      - ./checkpoints:/app/checkpoints
+    networks:
+      - forge-net
+    profiles:
+      - selfplay
+
+networks:
+  forge-net:
+    driver: bridge

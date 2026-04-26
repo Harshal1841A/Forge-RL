@@ -1,0 +1,43 @@
+# FORGE v2 — Unified Requirements
+# Covers both original FORGE v1 and FORGE-MA v9.0 extension
+
+# ── Core ──────────────────────────────────────────────────────────────────────
+gymnasium>=0.29.1
+numpy>=1.24.0
+torch>=2.1.0                    # free, open-source
+sentence-transformers>=2.6.0    # free, runs locally (all-MiniLM-L6-v2)
+
+# ── FORGE-MA Adversarial RL ───────────────────────────────────────────────────
+torch-geometric>=2.5.0          # GIN / HAE models
+trl>=0.7.0                      # PPO trainer
+stix2>=3.0.0                    # DISARM TTP registry
+
+# ── Server ────────────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+httpx>=0.27.0                   # async HTTP for free API calls
+python-dotenv>=1.0.0            # Load .env for local keys
+duckduckgo-search>=5.0.0        # Completely free/keyless fact check search
+
+# ── LLM (OpenEnv Strict Client) ──────────────────────────────────────────────
+openai>=1.14.0                  # required client for evaluation
+tenacity>=8.2.0                 # exponential backoff for Groq 429 rate limits
+
+# ── Dev / Evaluation ──────────────────────────────────────────────────────────
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+openenv-core>=0.2.0
+uv>=0.11.0
+
+# ── Knowledge Graph ───────────────────────────────────────────────────────────
+graphifyy>=0.3.0                # codebase knowledge graph builder
+
+# ── Deepfake Detection ────────────────────────────────────────────────────────
+torchvision>=0.17.0             # CNN backbones + image transforms
+Pillow>=10.0.0                  # image I/O
+opencv-python-headless>=4.9.0   # frame ops (no GUI deps for server)
+facenet-pytorch>=2.5.3          # MTCNN face detector
+timm>=0.9.12                    # EfficientNet-B4 (tf_efficientnet_b4_ns)
+pillow-heif>=0.16.0             # iPhone HEIC/HEIF decode
+python-multipart>=0.0.9         # FastAPI multipart/form-data uploads

@@ -1,0 +1,55 @@
+name: OpenEnv Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Run pytest grader smoke tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Check score boundaries
+        run: |
+          python -c "
+          import subprocess, sys
+          result = subprocess.run(
+              ['python', 'inference.py', '--episodes', '1'],
+              capture_output=True, text=True, timeout=300
+          )
+          output = result.stdout
+          for line in output.split('\n'):
+              if '[END]' in line:
+                  score = float(line.split('score=')[1].split(' ')[0])
+                  assert 0.001 <= score <= 0.999, f'Score {score} out of range in: {line}'
+                  print(f'PASS: {line}')
+          "
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t forge-test .
+      - name: Test health endpoint
+        run: |
+          docker run -d -p 7860:7860 --name forge forge-test
+          sleep 15
+          curl -f http://localhost:7860/health
+          docker stop forge

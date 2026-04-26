@@ -1,0 +1,23 @@
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+tasks:
+  - id: fabricated_stats
+    difficulty: easy
+  - id: out_of_context
+    difficulty: medium
+  - id: coordinated_campaign
+    difficulty: hard
+  - id: politifact_liar
+    difficulty: medium
+  - id: image_forensics
+    difficulty: hard
+  - id: sec_fraud
+    difficulty: hard
+  - id: verified_fact
+    difficulty: easy
+  - id: satire_news
+    difficulty: medium
+  - id: plandemic
+    difficulty: hard
