@@ -77,19 +77,31 @@ export default function VisualPage() {
               Add image files there to display them here.
             </div>
           ) : (
-            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="mt-10 flex flex-col gap-12">
               {images.map((name) => (
                 <div
                   key={name}
-                  className="rounded-2xl border border-white/10 bg-slate-950/30 overflow-hidden"
+                  className="rounded-2xl border border-white/10 bg-slate-950/30 overflow-hidden flex flex-col"
                 >
-                  <img
-                    src={`/api/graph-show/image/${encodeURIComponent(name)}`}
-                    alt={name}
-                    className="w-full h-56 object-cover bg-black/30"
-                  />
-                  <div className="px-4 py-3 text-xs text-slate-300 font-mono truncate">
-                    {name}
+                  <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                    <span className="text-xs text-slate-300 font-mono italic">
+                      {name}
+                    </span>
+                    <a 
+                      href={`/api/graph-show/image/${encodeURIComponent(name)}`} 
+                      target="_blank"
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors underline decoration-cyan-500/30 underline-offset-4"
+                    >
+                      VIEW ORIGINAL
+                    </a>
+                  </div>
+                  <div className="flex-1 bg-black/20 flex items-center justify-center p-4">
+                    <img
+                      src={`/api/graph-show/image/${encodeURIComponent(name)}`}
+                      alt={name}
+                      className="max-w-full h-auto object-contain rounded-lg shadow-2xl shadow-black/50"
+                      style={{ maxHeight: "80vh" }}
+                    />
                   </div>
                 </div>
               ))}
