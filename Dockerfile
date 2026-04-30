@@ -25,11 +25,12 @@ RUN pip install --no-cache-dir -e . 2>/dev/null || true
 
 EXPOSE 7860
 
-# FastAPI on 7860 (OpenEnv port), Next.js on 3000 (internal)
+# Spaces public port serves Next.js; FastAPI stays internal for rewrites.
 ENV PORT=7860
-ENV BACKEND_PORT=7860
-ENV FRONTEND_PORT=3000
-ENV NEXT_PUBLIC_API_URL=http://localhost:7860
+ENV BACKEND_PORT=8000
+ENV FRONTEND_PORT=7860
+ENV BACKEND_INTERNAL_URL=http://127.0.0.1:8000
+ENV NEXT_PUBLIC_API_URL=
 ENV NEXT_TELEMETRY_DISABLED=1
 
 CMD ["python", "scripts/run_hf_space.py"]

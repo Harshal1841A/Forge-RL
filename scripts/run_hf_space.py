@@ -33,10 +33,10 @@ def find_frontend_dir():
 
 
 def main():
-    # FastAPI on 7860 — the OpenEnv / HuggingFace exposed port
-    backend_port  = os.getenv("BACKEND_PORT",  "7860")
-    # Next.js on 3000 — internal only
-    frontend_port = os.getenv("FRONTEND_PORT", "3000")
+    # Hugging Face Spaces exposes a single public port; serve Next.js on that port.
+    frontend_port = os.getenv("FRONTEND_PORT", "7860")
+    # Keep FastAPI internal and let Next.js rewrites proxy API paths to it.
+    backend_port  = os.getenv("BACKEND_PORT",  "8000")
     host          = os.getenv("HOST", "0.0.0.0")
     npm_bin       = "npm.cmd" if os.name == "nt" else "npm"
     frontend_dir  = find_frontend_dir()
