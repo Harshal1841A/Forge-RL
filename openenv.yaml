@@ -1,7 +1,12 @@
+name: FORGE-RL
+version: 2.0.0
 type: space
 runtime: fastapi
 app: server.app:app
 port: 7860
+observation_space:
+  type: Box
+reward_range: [0.001, 0.999]
 tasks:
   - id: fabricated_stats
     difficulty: easy

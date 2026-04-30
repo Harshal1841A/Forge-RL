@@ -101,7 +101,7 @@ def create_app() -> FastAPI:
             "tasks": 9,
             "action_space": 13,
             "observation_shape": 3859,
-            "reward_range": [-1.0, 1.0],
+            "reward_range": [0.001, 0.999],
         }
 
     @app.get("/tasks", tags=["System"])
@@ -153,6 +153,42 @@ def create_app() -> FastAPI:
                 }
                 for i, name in enumerate(ACTIONS)
             ]
+        }
+
+    @app.get("/oversight-report/{episode_id}", tags=["Fleet AI"])
+    async def oversight_report(episode_id: str):
+        from server.state import EPISODE_STORE
+        from env.oversight_report import generate_oversight_report, generate_stix2_bundle
+        record = EPISODE_STORE.get(episode_id)
+        if not record:
+            return JSONResponse(status_code=404, content={"detail": "Episode not found"})
+        episode_output = record.get("episode_output")
+        if not episode_output:
+            return JSONResponse(status_code=404, content={"detail": "Episode not yet complete"})
+        return {
+            "episode_id": episode_id,
+            "oversight_report_markdown": generate_oversight_report(episode_output),
+            "stix2_bundle": generate_stix2_bundle(episode_output),
+        }
+
+    @app.get("/expert-review/{episode_id}", tags=["Snorkel AI"])
+    async def expert_review(episode_id: str):
+        from server.state import EPISODE_STORE
+        record = EPISODE_STORE.get(episode_id)
+        if not record:
+            return JSONResponse(status_code=404, content={"detail": "Episode not found"})
+        expert_result = record.get("expert_result", {})
+        return {
+            "episode_id": episode_id,
+            "expert_decision": expert_result.get("decision", "PENDING"),
+            "profile_votes": expert_result.get("votes", {}),
+            "ising_weights": expert_result.get("ising_weights", []),
+            "active_generation": expert_result.get("generation", 0),
+            "threshold_schedule": {
+                "gen_0_1": {"recall_min": 0.55, "confidence_min": 0.65},
+                "gen_2_plus": {"recall_min": 0.75, "confidence_min": 0.80}
+            },
+            "bonus_reward": expert_result.get("bonus_reward", 0.0),
         }
 
 

@@ -200,7 +200,7 @@ const PLANDEMIC_FALLBACK: EpisodeData = {
 const ACTION_LABELS: Record<string, string> = {
   query_source: "Queried primary source (Wikipedia + FactCheck)",
   trace_origin: "Traced origin via Wayback + Wikidata",
-  cross_reference: "Cross-referenced multiple Wikipedia articles",
+  cross_reference: "Cross-referenced multiple sources",
   request_context: "Requested context from authoritative sources",
   entity_link: "Linked named entities → Wikidata",
   temporal_audit: "Verified timestamps via Wayback CDX",
@@ -214,16 +214,24 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 let _logCounter = 0;
-function makeLog(actionName: string, reward?: number, obs?: TypedObservation): LogEntry {
+function makeLog(actionName: string, reward?: number, obs?: TypedObservation, taskName?: string): LogEntry {
   const mins = Math.floor(_logCounter / 60);
   const secs = _logCounter % 60;
   const ts = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   _logCounter += 2;
 
   let text = ACTION_LABELS[actionName] ?? actionName.replace(/_/g, " ");
+  if (actionName === "cross_reference" && taskName === "image_forensics") {
+    text = "Ran reverse image search (cross_reference)";
+  }
   if (obs) {
     if (actionName === "entity_link") text = `Linked ${Math.round(obs.source_diversity * 3 + 2)} named entities → Wikidata`;
-    if (actionName === "cross_reference") text = `Retrieved ${Math.round(obs.evidence_coverage * 10 + 1)} similar DB cases`;
+    if (actionName === "cross_reference") {
+      const matches = Math.round(obs.evidence_coverage * 10 + 1);
+      text = taskName === "image_forensics"
+        ? `Ran reverse image search (cross_reference) and matched ${matches} similar images`
+        : `Retrieved ${matches} similar DB cases`;
+    }
   }
 
   let agent: "Blue Team" | "Red Team" | "Orchestrator" = "Blue Team";
@@ -356,7 +364,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
 
   // ── takeAction: POST /step → execute one agent action ─────────────────────
   takeAction: async (actionIndex: number) => {
-    const { episodeId, actions, done } = get();
+    const { episodeId, actions, done, selectedTaskName } = get();
     if (!episodeId || done) return;
 
     const actionName = actions[actionIndex]?.name ?? `action_${actionIndex}`;
@@ -366,7 +374,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const stateRes = await forge.state(episodeId);
       const obs = stateRes.typed_observation;
 
-      const log = makeLog(actionName, stepRes.reward, obs);
+      const log = makeLog(actionName, stepRes.reward, obs, selectedTaskName);
       set((s) => ({
         logs: [...s.logs, log],
         observation: obs,
