@@ -172,3 +172,19 @@ def _validate_api_keys():
 # Run validation on module load
 _validate_api_keys()
 
+import logging as _logging
+_cfg_logger = _logging.getLogger("forge.config")
+
+def _warn_missing_key(key_value: str, provider: str, fallback: str) -> None:
+    if not key_value or key_value == OPENAI_API_KEY:
+        _cfg_logger.warning(
+            "Provider %s is using fallback key (OPENAI_API_KEY). "
+            "Set %s in .env for independent authentication. "
+            "LLM calls to %s may fail with 401.",
+            provider, fallback, provider
+        )
+
+_warn_missing_key(CEREBRAS_API_KEY, "Cerebras", "CEREBRAS_API_KEY")
+_warn_missing_key(MISTRAL_API_KEY,  "Mistral",  "MISTRAL_API_KEY")
+_warn_missing_key(OPENROUTER_API_KEY, "OpenRouter", "OPENROUTER_API_KEY")
+

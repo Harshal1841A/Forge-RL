@@ -98,7 +98,8 @@ async def get_state(episode_id: Optional[str] = None):
     typed_obs = Observation(
         episode_id=eid,
         vector=record["obs"].tolist(),
-        claim_text=graph.root.text if graph and graph.root else "",
+        claim_text=(graph.root_claim.text if hasattr(graph, 'root_claim')
+        else graph.root.text if hasattr(graph, 'root') else ""),
         evidence_coverage=round(float(graph.evidence_coverage), 4) if graph else 0.0,
         source_diversity=round(float(graph.source_diversity_entropy), 4) if graph else 0.0,
         contradiction_count=int(graph.contradiction_surface_area) if graph else 0,
@@ -108,7 +109,8 @@ async def get_state(episode_id: Optional[str] = None):
     )
 
     human_readable = {
-        "claim": graph.root.text if graph and graph.root else "no claim",
+        "claim": (graph.root_claim.text if hasattr(graph, 'root_claim')
+        else graph.root.text if hasattr(graph, 'root') else ""),
         "true_label_hidden": True,
         "task": info.get("task_id", "unknown"),
         "step": int(env.steps),

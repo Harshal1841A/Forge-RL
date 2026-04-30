@@ -43,11 +43,13 @@ class RedStepReward:
     def __init__(self, gin, alpha: float = 1.0):
         self.gin = gin
         self.alpha = alpha
-        self._prev_detection_prob: float = 0.5   # neutral prior at episode start
+        self._prev_gin_prob: float = 0.0
+        self._step_count: int = 0
 
     def reset(self) -> None:
-        """Call at the start of each episode to clear state."""
-        self._prev_detection_prob = 0.5
+        """Must be called at episode start to clear previous state."""
+        self._prev_gin_prob = 0.0
+        self._step_count = 0
 
     def compute(self, graph_data, primitive_idx: Optional[int] = None) -> float:
         """
@@ -66,6 +68,9 @@ class RedStepReward:
         -------
         float : step reward (positive = Red made detection harder)
         """
+        # Guard: ensure reset() was called before first compute()
+        if not hasattr(self, '_prev_gin_prob'):
+            self.reset()
         gin_result = self.gin.predict_chain(graph_data)
         presence_probs = gin_result["presence_probs"]  # shape (8,)
 
@@ -75,13 +80,14 @@ class RedStepReward:
             # Use max detection probability as overall detectability measure
             current_detection_prob = float(np.max(presence_probs))
 
-        delta = current_detection_prob - self._prev_detection_prob
+        delta = current_detection_prob - self._prev_gin_prob
         r_step = -self.alpha * delta
 
-        self._prev_detection_prob = current_detection_prob
+        self._prev_gin_prob = current_detection_prob
+        self._step_count += 1
         return float(r_step)
 
     @property
     def prev_detection_prob(self) -> float:
         """Returns the GIN detection probability from the previous step."""
-        return self._prev_detection_prob
+        return self._prev_gin_prob

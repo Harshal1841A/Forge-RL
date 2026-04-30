@@ -22,30 +22,55 @@ None
 """
 
 def update_report(report: str, tool_name: str, finding: str,
-                  trust_signal: str, gin_hint: str, steps_used: int = 1, budget_total: int = 10,
-                  primitives_found: str = "0", confidence: str = "0.00", recommended_tool: str = "None") -> str:
-    """Append tool result row to evidence table. Append GIN hint section."""
+                  trust_signal: str, gin_hint: str,
+                  steps_used: int = 1, budget_total: int = 10,
+                  primitives_found: str = "0", confidence: str = "0.00",
+                  recommended_tool: str = "None") -> str:
+    """Append tool result row to evidence table. Insert AFTER headers."""
+    import re
     lines = report.split('\n')
-    
-    # Find table end
-    table_idx = -1
+
+    # Find the table header row (contains "| Tool |")
+    # Insert NEW data row immediately AFTER the header separator line (|----|)
+    header_idx = -1
+    sep_idx = -1
     for i, line in enumerate(lines):
-        if line.startswith("### Current Chain Hypothesis"):
-            table_idx = i - 1
+        if '| Tool |' in line or '| tool |' in line.lower():
+            header_idx = i
+        if header_idx != -1 and line.startswith('|---') and sep_idx == -1:
+            sep_idx = i
             break
-            
-    if table_idx != -1:
-        # Insert row
-        lines.insert(table_idx, f"| {tool_name} | {finding} | {trust_signal} | {gin_hint.split()[0]} |")
-        
+
+    new_row = f"| {tool_name} | {finding[:60]} | {trust_signal} | {gin_hint.split()[0] if gin_hint.split() else 'unknown'} |"
+
+    if sep_idx != -1:
+        # Insert immediately after the separator line — this is always correct
+        lines.insert(sep_idx + 1, new_row)
+    else:
+        # Fallback: append before chain hypothesis section
+        for i, line in enumerate(lines):
+            if line.startswith("### Current Chain Hypothesis"):
+                lines.insert(i, new_row)
+                break
+
     report = "\n".join(lines)
-    
-    # Update parts via regex
-    report = re.sub(r'GIN prediction: .*', f'GIN prediction: {gin_hint}', report)
-    report = re.sub(r'Steps used: \d+/\d+ \| Primitives found: [^\s]+ \| Confidence: [\d.]+',
-                    f'Steps used: {steps_used}/{budget_total} | Primitives found: {primitives_found} | Confidence: {confidence}', report)
-    report = re.sub(r'### Next Recommended Tool\n.*', f'### Next Recommended Tool\n{recommended_tool}', report)
-    
+
+    # Update budget and stats via regex
+    report = re.sub(
+        r'Steps used: \d+/\d+.*',
+        f"Steps used: {steps_used}/{budget_total} | Primitives found: {primitives_found} | Confidence: {confidence}",
+        report
+    )
+    report = re.sub(
+        r'GIN prediction: .*',
+        f"GIN prediction: [{gin_hint}]",
+        report
+    )
+    report = re.sub(
+        r'Next Recommended Tool\n.*',
+        f"Next Recommended Tool\n{recommended_tool}",
+        report
+    )
     return report
 
 def compress_report(report: str, max_tokens: int = 600) -> str:

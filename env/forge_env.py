@@ -31,7 +31,7 @@ from env.episode_output import EpisodeOutput
 from rewards.hierarchical_reward import compute_reward
 from rewards.red_step_reward import RedStepReward
 from red_team.red_agent import RedAgent
-from blue_team.gin_predictor import GINPredictor
+from runtime import get_blue_gin
 
 # Sample claims for demo episodes (no LLM needed).
 #
@@ -77,7 +77,6 @@ class ForgeEnv:
         self.red_agent = RedAgent(mode="greedy")
         # Use the process-wide GIN singleton so training updates here are
         # visible to the deployed server (which used to hold a separate copy).
-        from runtime import get_blue_gin
         self.gin = get_blue_gin()
         self.red_step_rewarder = RedStepReward(self.gin, alpha=1.0)
 

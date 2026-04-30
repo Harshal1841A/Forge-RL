@@ -39,6 +39,46 @@ def init_db():
         """)
         conn.commit()
 
+def auto_grade_episode(episode_id: str, record: dict) -> None:
+    """Auto-grade a completed episode. Called by step route on done=True."""
+    try:
+        env = record.get("env")
+        if env is None:
+            return
+        graph     = getattr(env, "graph", None)
+        task      = getattr(env, "current_task", None)
+        verdict   = record.get("verdict")
+        true_label = getattr(graph, "true_label",
+                     getattr(graph, "root_claim", None) and None) if graph else "unknown"
+        if true_label is None:
+            true_label = "unknown"
+
+        correct    = bool(verdict == true_label) if verdict else False
+        oracle     = task.oracle_steps(graph) if task and graph and hasattr(task, "oracle_steps") else 5
+        steps      = getattr(env, "steps", 1)
+        efficiency = min(oracle / max(steps, 1), 1.0)
+        coverage   = getattr(graph, "evidence_coverage", 0.0) if graph else 0.0
+        base       = 0.999 if correct else 0.001
+        composite  = round(float(max(0.001, min(0.999,
+            base + efficiency * 0.2 + float(coverage) * 0.1
+        ))), 4)
+        agent_id   = record.get("agent_id", "anonymous")
+        total_rew  = round(record.get("total_reward", 0.0), 4)
+
+        with get_db() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO grades "
+                "(episode_id, agent_id, correct, total_reward, composite) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (episode_id, agent_id, correct, total_rew, composite)
+            )
+            conn.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger("forge.grade").warning(
+            "auto_grade_episode %s failed: %s", episode_id, e
+        )
+
 init_db()
 
 

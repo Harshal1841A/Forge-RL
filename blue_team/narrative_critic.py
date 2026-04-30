@@ -33,11 +33,18 @@ class NarrativeCritic(LLMAgent):
     Provider: Mistral / mistral-small-latest (independent from Auditor & Historian).
     """
     def __init__(self, model_name: str = None, api_key: str = None, provider: str = None):
-        import config
+        import config, logging
+        _key = api_key or config.MISTRAL_API_KEY
+        if not _key:
+            logging.getLogger("forge.narrative_critic").warning(
+                "MISTRAL_API_KEY not set. NarrativeCritic will use "
+                "heuristic fallback for all analyses."
+            )
         super().__init__(
             system_prompt=SYSTEM_PROMPT,
-            provider=provider or config.AGENT_CRITIC_PROVIDER,   # mistral
-            api_key=api_key   or config.MISTRAL_API_KEY,
+            provider=provider or "mistral",
+            api_key=_key or config.OPENAI_API_KEY,
+            model_name=model_name or config.MISTRAL_MODEL,
         )
         
     def analyze(self, root_claim_text: str, final_claim_graph_json: str, gin_feedback: str = None) -> dict:

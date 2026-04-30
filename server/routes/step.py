@@ -41,6 +41,13 @@ async def take_step(req: StepRequest):
         "done": done,
     })
 
+    if done:
+        try:
+            from server.routes.grade import auto_grade_episode
+            auto_grade_episode(episode_id=eid, record=record)
+        except Exception:
+            pass  # Never let grading failure break a step response
+
     return StepResponse(
         observation=obs.tolist(),
         reward=round(float(reward), 5),

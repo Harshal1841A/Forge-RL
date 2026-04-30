@@ -34,12 +34,31 @@ try:
     HAS_PYG = True
 except ImportError:
     HAS_PYG = False
+    _GIN_FALLBACK_WARNED = False
     class GINConv(nn.Module):
-        def __init__(self, nn_seq, **kwargs):
+        def __init__(self, nn_seq, aggr='add', **kwargs):
             super().__init__()
             self.nn = nn_seq
+            self.aggr = aggr
         def forward(self, x, edge_index):
-            return self.nn(x)
+            global _GIN_FALLBACK_WARNED
+            if not _GIN_FALLBACK_WARNED:
+                import logging
+                logging.getLogger("forge.blue_gin").warning(
+                    "PyG not installed. GIN running as MLP fallback — "
+                    "neighbourhood aggregation DISABLED. "
+                    "Install torch-geometric for full GIN functionality."
+                )
+                _GIN_FALLBACK_WARNED = True
+            # SUM aggregation fallback (manual scatter_add)
+            import torch as _torch
+            out = self.nn(x)
+            if edge_index.numel() > 0:
+                src, dst = edge_index[0], edge_index[1]
+                agg = _torch.zeros_like(out)
+                agg.scatter_add_(0, dst.unsqueeze(1).expand_as(out[src]), out[src])
+                out = out + agg
+            return out
     def global_add_pool(x, batch):
         if x.size(0) == 0:
             return torch.zeros((1, x.size(-1)), device=x.device)

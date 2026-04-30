@@ -14,6 +14,7 @@ Endpoints:
 """
 
 from __future__ import annotations
+import json
 import logging
 import sys
 from contextlib import asynccontextmanager
@@ -155,43 +156,6 @@ def create_app() -> FastAPI:
             ]
         }
 
-    @app.get("/oversight-report/{episode_id}", tags=["Fleet AI"])
-    async def oversight_report(episode_id: str):
-        from server.state import EPISODE_STORE
-        from env.oversight_report import generate_oversight_report, generate_stix2_bundle
-        record = EPISODE_STORE.get(episode_id)
-        if not record:
-            return JSONResponse(status_code=404, content={"detail": "Episode not found"})
-        episode_output = record.get("episode_output")
-        if not episode_output:
-            return JSONResponse(status_code=404, content={"detail": "Episode not yet complete"})
-        return {
-            "episode_id": episode_id,
-            "oversight_report_markdown": generate_oversight_report(episode_output),
-            "stix2_bundle": generate_stix2_bundle(episode_output),
-        }
-
-    @app.get("/expert-review/{episode_id}", tags=["Snorkel AI"])
-    async def expert_review(episode_id: str):
-        from server.state import EPISODE_STORE
-        record = EPISODE_STORE.get(episode_id)
-        if not record:
-            return JSONResponse(status_code=404, content={"detail": "Episode not found"})
-        expert_result = record.get("expert_result", {})
-        return {
-            "episode_id": episode_id,
-            "expert_decision": expert_result.get("decision", "PENDING"),
-            "profile_votes": expert_result.get("votes", {}),
-            "ising_weights": expert_result.get("ising_weights", []),
-            "active_generation": expert_result.get("generation", 0),
-            "threshold_schedule": {
-                "gen_0_1": {"recall_min": 0.55, "confidence_min": 0.65},
-                "gen_2_plus": {"recall_min": 0.75, "confidence_min": 0.80}
-            },
-            "bonus_reward": expert_result.get("bonus_reward", 0.0),
-        }
-
-
     @app.post("/fabricate", tags=["System"])
     async def fabricate_claim(request: FabricateRequest):
         """
@@ -324,6 +288,60 @@ def create_app() -> FastAPI:
             "gin_predicted_chain": gin_predicted_chain,
         }
 
+    @app.get("/oversight-report/{episode_id}", tags=["Fleet AI"])
+    async def oversight_report_endpoint(episode_id: str):
+        """Fleet AI bonus: structured STIX2 audit trail of Red Team behavior."""
+        from env.oversight_report import generate_oversight_report, generate_stix2_bundle
+        record = EPISODE_STORE.get(episode_id)
+        if not record:
+            return JSONResponse(
+                status_code=404,
+                content={"detail": f"Episode {episode_id} not found"}
+            )
+        ep_out = record.get("episode_output")
+        claim_text = record.get("claim_text", "")
+        if ep_out is None:
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "episode_id": episode_id,
+                    "status": "episode_not_yet_complete",
+                    "detail": "Episode must be completed before oversight report is available."
+                }
+            )
+        return {
+            "episode_id": episode_id,
+            "oversight_report_markdown": generate_oversight_report(ep_out, claim_text=claim_text),
+            "stix2_bundle": json.loads(generate_stix2_bundle(ep_out, claim_text=claim_text)),
+            "fleet_ai_bonus": "scalable_oversight",
+        }
+
+    @app.get("/expert-review/{episode_id}", tags=["Snorkel AI"])
+    async def expert_review_endpoint(episode_id: str):
+        """Snorkel AI bonus: expert panel decision with changing requirements."""
+        record = EPISODE_STORE.get(episode_id)
+        if not record:
+            return JSONResponse(
+                status_code=404,
+                content={"detail": f"Episode {episode_id} not found"}
+            )
+        expert_result = record.get("expert_result", {})
+        ep_out = record.get("episode_output")
+        return {
+            "episode_id": episode_id,
+            "expert_decision": expert_result.get("decision",
+                               getattr(ep_out, "expert_decision", "PENDING") if ep_out else "PENDING"),
+            "profile_votes": expert_result.get("votes", {}),
+            "ising_weights_shape": "4x4",
+            "active_generation": expert_result.get("generation", 0),
+            "threshold_schedule": {
+                "gen_0_1": {"legal_recall_min": 0.55, "fast_budget_max": 0.70},
+                "gen_2_plus": {"legal_recall_min": 0.75, "fast_budget_max": 0.50},
+            },
+            "bonus_reward": expert_result.get("bonus_reward", 0.0),
+            "snorkel_ai_bonus": "experts_in_the_loop",
+        }
+
 
     @app.get("/leaderboard", tags=["System"])
     async def leaderboard():
@@ -395,10 +413,14 @@ def create_app() -> FastAPI:
 
 app = create_app()
 
-if __name__ == "__main__":
+def main():
     uvicorn.run(
         "server.main:app",
         host=config.SERVER_HOST,
         port=config.SERVER_PORT,
         reload=True,
     )
+
+
+if __name__ == "__main__":
+    main()

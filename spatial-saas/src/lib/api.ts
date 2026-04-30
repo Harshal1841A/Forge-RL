@@ -24,6 +24,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function _getSessionAgentId(): string {
+  if (typeof window === "undefined") return "ssr_visitor";
+  const KEY = "forge_agent_id";
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = `visitor_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface HealthResponse {
@@ -196,11 +207,20 @@ export const forge = {
 
   actions: () => apiFetch<ActionsResponse>("/actions"),
 
-  reset: (req: ResetRequest = {}) =>
-    apiFetch<ResetResponse>("/reset", {
+  reset: (options?: {
+    taskName?: string;
+    seed?: number;
+    agentId?: string;
+  }) => {
+    const payload: Record<string, unknown> = {};
+    if (options?.taskName) payload.task_name = options.taskName;
+    if (options?.seed !== undefined) payload.seed = options.seed;
+    payload.agent_id = options?.agentId ?? _getSessionAgentId();
+    return apiFetch<ResetResponse>("/reset", {
       method: "POST",
-      body: JSON.stringify(req),
-    }),
+      body: JSON.stringify(payload),
+    });
+  },
 
   step: (req: StepRequest) =>
     apiFetch<StepResponse>("/step", {

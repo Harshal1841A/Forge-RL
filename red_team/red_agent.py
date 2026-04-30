@@ -19,10 +19,19 @@ from red_team.action_validator import validate_action
 
 # Map tool index → human label (must match NegotiatedSearch.TOOLS order)
 TOOL_LABELS = [
-    "trace_origin", "query_source", "temporal_audit", "quote_search",
-    "cross_reference", "entity_link", "network_cluster", "context_expand",
-    "image_reverse_search", "domain_whois", "sentiment_analysis",
-    "semantic_similarity", "authorship_verification"
+    "trace_origin",          # 0
+    "query_source",          # 1
+    "temporal_audit",        # 2
+    "quote_search",          # 3
+    "cross_reference",       # 4
+    "entity_link",           # 5
+    "network_cluster",       # 6
+    "context_expand",        # 7
+    "image_reverse_search",  # 8
+    "domain_whois",          # 9
+    "sentiment_analysis",    # 10
+    "semantic_similarity",   # 11
+    "authorship_verification"# 12
 ]
 
 # All primitives in canonical enum order

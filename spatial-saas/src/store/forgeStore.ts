@@ -342,9 +342,10 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     set({ launching: true, error: null, logs: [], grade: null, done: false, totalReward: 0, observation: null, status: "ACTIVE" });
     try {
       const res = await forge.reset({
-        task_name: selectedTaskName,
-        agent_id: agentId,
-        use_live_tools: true,
+        taskName: selectedTaskName ?? undefined,
+        agentId: typeof window !== "undefined"
+          ? localStorage.getItem("forge_agent_id") ?? "web_visitor"
+          : "web_visitor",
       });
       const initLog: LogEntry = {
         id: 1,

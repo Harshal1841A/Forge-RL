@@ -1,7 +1,5 @@
 # server/app.py
-from openenv.core.env_server import create_app
-from forge_environment import ForgeEnvironment
-from models import ForgeAction, ForgeObservation
-
-env = ForgeEnvironment()
-app = create_app(env, ForgeAction, ForgeObservation)
+# Canonical entry point for openenv.yaml: app: server.app:app
+# Re-exports the real app from server.main where all routes live.
+from server.main import app  # noqa: F401
+__all__ = ["app"]

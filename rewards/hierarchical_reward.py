@@ -58,7 +58,7 @@ CONSENSUS_BONUS: dict[str, float] = {
 
 # ── expert bonus ───────────────────────────────────────────────────────────────
 EXPERT_APPROVE_BONUS: float = +0.15  # matches ExpertReviewerAgent.bonus_reward()
-EXPERT_REJECT_BONUS:  float = +0.00
+EXPERT_REJECT_BONUS:  float = -0.10
 
 # ── anti-hacking constants (PRD v8.1 §5) ──────────────────────────────────────
 # chain_entropy_bonus: rewards Blue for predicting diverse primitive sets
