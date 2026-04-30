@@ -33,4 +33,4 @@ Pillow>=10.0.0
 torchvision>=0.16.0
 
 # ── Knowledge Graph ───────────────────────────────────────────────
-graphify>=0.3.0
+# graphify is a local tool output directory in this repo, not a pip package.
