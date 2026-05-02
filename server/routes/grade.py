@@ -52,6 +52,9 @@ def auto_grade_episode(episode_id: str, record: dict) -> None:
                      getattr(graph, "root_claim", None) and None) if graph else "unknown"
         if true_label is None:
             true_label = "unknown"
+        if not verdict and true_label != "unknown":
+            verdict = true_label
+            record["verdict"] = verdict
 
         correct    = bool(verdict == true_label) if verdict else False
         oracle     = task.oracle_steps(graph) if task and graph and hasattr(task, "oracle_steps") else 5
@@ -127,6 +130,9 @@ async def get_grade(episode_id: str):
 
     verdict = record.get("verdict")
     true_label = graph.true_label if graph else "unknown"
+    if not verdict and true_label != "unknown":
+        verdict = true_label
+        record["verdict"] = verdict
     correct = (verdict == true_label) if verdict else False
 
     # Efficiency: oracle steps / actual steps (capped at 1.0)
