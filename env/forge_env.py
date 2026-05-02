@@ -337,8 +337,14 @@ class ForgeEnv:
                 "graph_nodes":       len(self._claim_graph.nodes) if self._claim_graph else 0,
             }
 
-    def _evaluate_episode(self) -> Tuple[float, EpisodeOutput]:
-        """Run GIN + lightweight consensus and compute hierarchical reward."""
+    def _evaluate_episode(self) -> Tuple[float, "EpisodeOutput"]:
+        """
+        Run GIN + real ExpertReviewerAgent and compute hierarchical reward.
+
+        FIX 1: ExpertReviewerAgent is now called properly.
+        FIX 2: Consensus detection uses a min-diversity guard to prevent
+                unanimous=+0.10 becoming a free bonus after convergence.
+        """
         x, edge_index = self._graph_to_tensors()
 
         class _G:
@@ -352,16 +358,29 @@ class ForgeEnv:
         predicted_chain = gin_result["ordered_chain"]
         gin_confidence  = gin_result.get("confidence", 0.5)
 
-        # Real MC-Dropout ensemble of N=4 stochastic forward passes — replaces
-        # the previous `[predicted_chain] * 4` (one prediction copied four
-        # times). Each ensemble member is a genuinely independent dropout
-        # sample, giving the consensus / entropy reward components real signal.
+        # MC-Dropout ensemble — 4 stochastic forward passes
         ensemble = self.gin.predict_chain_ensemble(g, n_agents=4)
-        predicted_chains_ensemble = [m["ordered_chain"] for m in ensemble] or [predicted_chain]
+        predicted_chains_ensemble = (
+            [m["ordered_chain"] for m in ensemble]
+            if ensemble else [predicted_chain]
+        )
 
+        # ── Consensus level ─────────────────────────────────────────────
+        # FIX: add diversity guard — if all 4 chains are empty lists,
+        # this is NOT a meaningful "unanimous" agreement, it is model
+        # abstention. Treat as all_different to avoid free +0.10 bonus.
         from collections import Counter
-        chain_keys = [tuple(p.value if hasattr(p, "value") else str(p) for p in c) for c in predicted_chains_ensemble]
-        if chain_keys:
+        chain_keys = [
+            tuple(
+                p.value if hasattr(p, "value") else str(p)
+                for p in c
+            )
+            for c in predicted_chains_ensemble
+        ]
+        all_empty = all(len(k) == 0 for k in chain_keys)
+        if all_empty:
+            consensus_level = "all_different"  # abstention is not consensus
+        elif chain_keys:
             top_count = Counter(chain_keys).most_common(1)[0][1]
             n_total = len(chain_keys)
             if top_count == n_total:
@@ -375,12 +394,64 @@ class ForgeEnv:
         else:
             consensus_level = "all_different"
 
-        # Real expert: approve if predicted chain non-empty and confidence adequate
-        expert_decision = "APPROVE" if (predicted_chain and gin_confidence >= 0.45) else "REJECT"
+        # ── Expert decision — FIX: call real ExpertReviewerAgent ────────
+        # Previously hardcoded to:
+        #   "APPROVE" if (predicted_chain and gin_confidence >= 0.45)
+        # This bypassed the entire Snorkel AI bonus implementation.
+        try:
+            from agents.expert_reviewer_agent import ExpertReviewerAgent
+            if not hasattr(self, "_expert_reviewer"):
+                self._expert_reviewer = ExpertReviewerAgent(mode="ising")
 
+            # Compute recall for expert evaluation
+            true_set  = set(
+                p.value if hasattr(p, "value") else str(p)
+                for p in self._true_chain
+            )
+            pred_set  = set(
+                p.value if hasattr(p, "value") else str(p)
+                for p in predicted_chain
+            )
+            recall = (
+                len(pred_set & true_set) / len(true_set)
+                if true_set else 1.0
+            )
+            hallucinations = len(pred_set - true_set)
+            budget_used = self._steps / max(self.config.budget, 1)
+            # Determine generation from GIN checkpoint name if possible
+            generation = getattr(self, "_training_generation", 0)
+
+            expert_decision = self._expert_reviewer.get_decision(
+                verdict_correct=(
+                    gin_result.get("verdict", "") in
+                    {"fabricated", "misinfo", "satire", "out_of_context"}
+                    if self._true_chain
+                    else gin_result.get("verdict", "") in {"real", "verified"}
+                ),
+                recall=recall,
+                confidence=gin_confidence,
+                hallucinations=hallucinations,
+                budget_used=budget_used,
+                steps=self._steps,
+                tools_called=self._useful_tools,
+                coverage=min(1.0, len(pred_set) / max(len(true_set), 1)),
+                generation=generation,
+            )
+        except Exception as _e:
+            import logging
+            logging.getLogger("forge.env").warning(
+                "ExpertReviewerAgent failed, using confidence threshold: %s", _e
+            )
+            expert_decision = (
+                "APPROVE"
+                if (predicted_chain and gin_confidence >= 0.45)
+                else "REJECT"
+            )
+
+        # ── Plausibility: use graph snapshots ──────────────────────────
         with self._graph_lock:
             graph_before = copy.deepcopy(self._initial_claim_graph)
-            graph_after = copy.deepcopy(self._claim_graph)
+            graph_after  = copy.deepcopy(self._claim_graph)
 
         r = compute_reward(
             predicted_chains=predicted_chains_ensemble,
@@ -410,6 +481,17 @@ class ForgeEnv:
             red_step_rewards=self._red_step_rewards,
         )
         return r.total, ep
+
+    @property
+    def training_generation(self) -> int:
+        return getattr(self, "_training_generation", 0)
+
+    @training_generation.setter
+    def training_generation(self, gen: int) -> None:
+        self._training_generation = gen
+        # Also propagate to expert reviewer if initialised
+        if hasattr(self, "_expert_reviewer"):
+            self._expert_reviewer.episode_count = gen * 50
 
     @property
     def episode_output(self) -> Optional[EpisodeOutput]:

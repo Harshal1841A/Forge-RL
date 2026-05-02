@@ -1,32 +1,32 @@
 """
-Hierarchical Reward Shaper for FORGE-RL v9.0.
-SPEC (Master Prompt §Layer5 + PRD v8.1 Section 5):
+Hierarchical Reward Shaper for FORGE-RL v9.1
+SPEC (PRD v9.0 Section 5 + OpenEnv compliance):
 
-  R_total = w1*TED_best + w2*TPR_F1 + w3*plausibility_delta
+  R_total = w1*TED_mean + w2*TPR_F1 + w3*plausibility_delta
             + consensus_bonus + expert_bonus + budget_total
             + chain_entropy_bonus + chain_length_penalty
 
-  Weights (fixed, non-negotiable):
+  Weights:
     w1 = 0.40  (TED — primary chain reconstruction signal)
     w2 = 0.30  (TPR F1 — tactic coverage)
-    w3 = 0.20  (plausibility delta — claim-level coherence shift)
+    w3 = 0.20  (plausibility delta — structural coherence shift)
 
-  Consensus bonus (from SocietyOfThought):
+  Consensus bonus:
     unanimous (4/4) : +0.10
     majority  (3/4) : +0.05
     split/all-diff  : -0.05
 
-  Expert bonus (from ExpertReviewerAgent):
-    APPROVE : +0.05
-    REJECT  :  0.00
+  Expert bonus (matches ExpertReviewerAgent.bonus_reward()):
+    APPROVE : +0.15
+    REJECT  : -0.10
+    other   :  0.00
 
-  Anti-hacking components (PRD v8.1 §5):
-    chain_entropy_bonus  : rewards distributional diversity across predicted chains
-                           prevents Blue from always predicting the majority chain
-    chain_length_penalty : penalises over-long or trivially short predicted chains
+  Anti-hacking:
+    chain_entropy_bonus  : diversity reward, activates at TED > 0.25 (not 0.45)
+    chain_length_penalty : over/under prediction regularisation
 
-  Budget: see rewards/budget_penalty.py
-  Output clipped to [-1.0, 1.0].
+  Output clipped to (0.001, 0.999) — OpenEnv spec compliance.
+  NEVER returns exactly 0.0 or 1.0.
 """
 from __future__ import annotations
 import math
@@ -43,42 +43,44 @@ from rewards.plausibility import (
 )
 from rewards.budget_penalty import compute_budget_penalty, BudgetPenaltyResult
 
-# ── fixed weights ──────────────────────────────────────────────────────────────
+# ── fixed weights ─────────────────────────────────────────────────
 W_TED: float = 0.40
 W_F1:  float = 0.30
 W_PLB: float = 0.20
 
-# ── consensus bonus table (keys match SocietyResult.consensus_level) ──────────
+# ── consensus bonus ───────────────────────────────────────────────
 CONSENSUS_BONUS: dict[str, float] = {
-    "unanimous":    +0.10,
-    "majority_3":   +0.05,
-    "split_2_2":    -0.05,
+    "unanimous":     +0.10,
+    "majority_3":    +0.05,
+    "split_2_2":     -0.05,
     "all_different": -0.05,
 }
 
-# ── expert bonus ───────────────────────────────────────────────────────────────
-EXPERT_APPROVE_BONUS: float = +0.15  # matches ExpertReviewerAgent.bonus_reward()
+# ── expert bonus — MUST match ExpertReviewerAgent.bonus_reward() ──
+# FIX: was +0.05 / +0.00 — corrected to +0.15 / -0.10
+EXPERT_APPROVE_BONUS: float = +0.15
 EXPERT_REJECT_BONUS:  float = -0.10
 
-# ── anti-hacking constants (PRD v8.1 §5) ──────────────────────────────────────
-# chain_entropy_bonus: rewards Blue for predicting diverse primitive sets
-# rather than always predicting the modal/majority chain.
-ENTROPY_BONUS_WEIGHT: float = 0.05   # scales entropy contribution
-# chain_length_penalty: penalises trivially empty or over-saturated chains
-LENGTH_PENALTY_WEIGHT: float = 0.03  # scales length penalty
+# ── anti-hacking ──────────────────────────────────────────────────
+# FIX: entropy threshold lowered from 0.45 → 0.25
+# Previous 0.45 meant bonus never fired in Gen 0 (TED ~ 0.10-0.25)
+# which is exactly when reward hacking is most likely.
+ENTROPY_BONUS_WEIGHT:  float = 0.05
+ENTROPY_TED_THRESHOLD: float = 0.25   # was 0.45 — too high
+LENGTH_PENALTY_WEIGHT: float = 0.03
 
 
 @dataclass
 class RewardBreakdown:
-    ted_component:        float   # W_TED * TED_best
-    f1_component:         float   # W_F1  * tactic_F1
-    plausibility_delta:   float   # W_PLB * Δplausibility
+    ted_component:        float
+    f1_component:         float
+    plausibility_delta:   float
     consensus_bonus:      float
     expert_bonus:         float
     budget:               BudgetPenaltyResult
-    chain_entropy_bonus:  float   # anti-hacking: diversity bonus
-    chain_length_penalty: float   # anti-hacking: length regularisation
-    total:                float   # clipped [-1, 1]
+    chain_entropy_bonus:  float
+    chain_length_penalty: float
+    total:                float   # clipped (0.001, 0.999)
 
     def __str__(self) -> str:
         return (
@@ -94,27 +96,20 @@ class RewardBreakdown:
         )
 
 
-def _chain_entropy_bonus(predicted_chains: List[List[PrimitiveType]],
-                         mean_ted: float) -> float:
+def _chain_entropy_bonus(
+    predicted_chains: List[List[PrimitiveType]],
+    mean_ted: float,
+) -> float:
     """
-    Anti-hacking component: rewards Blue for predicting diverse sets of
-    primitives across the 4 agent chains, rather than unanimous majority voting.
-
-    Shannon entropy H over the union distribution of predicted primitives.
-    H=0 → all 4 agents predict exactly same chain → bonus=0
-    H>0 → diverse predictions → positive bonus (scaled by ENTROPY_BONUS_WEIGHT)
-
-    This prevents the degenerate reward-hack where Blue always predicts
-    the statistically dominant chain regardless of evidence.
+    Anti-hacking: reward diversity of predictions across agent ensemble.
+    FIX: threshold lowered from 0.45 to 0.25 so this fires in Gen 0.
     """
     if not predicted_chains:
         return 0.0
-    # Quality gate: do NOT reward diversity when core reconstruction quality
-    # is poor, otherwise random/noisy chains can game reward via high entropy.
-    if mean_ted < 0.45:
+    # Quality gate — now 0.25 so it activates early in training
+    if mean_ted < ENTROPY_TED_THRESHOLD:
         return 0.0
 
-    # Count frequency of each primitive across all agent chains
     prim_counts: dict[str, int] = {}
     total = 0
     for chain in predicted_chains:
@@ -126,30 +121,23 @@ def _chain_entropy_bonus(predicted_chains: List[List[PrimitiveType]],
     if total == 0:
         return 0.0
 
-    # Shannon entropy
     entropy = 0.0
     for count in prim_counts.values():
         prob = count / total
         if prob > 0:
             entropy -= prob * math.log2(prob)
 
-    # Max entropy with K_MAX primitives (log2(8) ≈ 3.0)
     max_entropy = math.log2(len(PrimitiveType))
     normalised = entropy / max_entropy if max_entropy > 0 else 0.0
     return float(ENTROPY_BONUS_WEIGHT * normalised)
 
 
-def _chain_length_penalty(predicted_chains: List[List[PrimitiveType]],
-                          true_chain: List[PrimitiveType]) -> float:
+def _chain_length_penalty(
+    predicted_chains: List[List[PrimitiveType]],
+    true_chain: List[PrimitiveType],
+) -> float:
     """
-    Anti-hacking component: penalises trivially short (empty) or
-    over-saturated (length == K_MAX always) predicted chains.
-
-    Penalty = -LENGTH_PENALTY_WEIGHT * |avg_pred_len - true_len| / K_MAX
-
-    This penalises Blue for always predicting length=0 (reward-hacking by
-    abstaining) or always predicting the full K_MAX chain (over-fitting to
-    the prior chain length distribution).
+    Anti-hacking: penalise trivially short or over-saturated chains.
     """
     if not predicted_chains:
         return 0.0
@@ -159,109 +147,114 @@ def _chain_length_penalty(predicted_chains: List[List[PrimitiveType]],
     length_diff = abs(avg_pred_len - true_len) / max(K_MAX, 1)
     base_penalty = float(-LENGTH_PENALTY_WEIGHT * min(1.0, length_diff))
 
-    # Extra guardrail against trivial near-empty predictions.
     if avg_pred_len < 1.0 and true_len > 0:
         base_penalty -= 0.03
     return base_penalty
 
 
-def compute_reward(
-    *,
-    # Chain signals
-    predicted_chains: List[List[PrimitiveType]],   # all 4 agent chains
-    true_chain: List[PrimitiveType],
-
-    # Plausibility signals
+def _compute_plausibility_delta(
     claim_text_before: str,
     claim_text_after: str,
+    claim_graph_before=None,
+    claim_graph_after=None,
+) -> float:
+    """
+    FIX: Previously always returned 0.0 because claim texts are identical
+    (forge_env.py correctly does NOT modify claim_text when Red applies
+    graph mutations — the text change was removed as a debug artefact).
 
-    # Society signals
-    consensus_level: str,      # "unanimous" | "majority_3" | "split_2_2" | "all_different"
+    Correct approach:
+    1. If texts differ → use sentence-transformer semantic drift
+    2. If graphs provided → use graph-based plausibility delta (PRIMARY path)
+    3. Fallback → text-only regex scorer
 
-    # Expert signal
-    expert_decision: str,       # "APPROVE" | "REJECT"
+    The graph-based path is now PRIMARY because it reflects actual
+    structural changes Red Team made to the ClaimGraph.
+    """
+    # Path 1: texts actually differ (rare — only in pipeline mode)
+    if claim_text_before != claim_text_after:
+        drift = semantic_drift_delta(claim_text_before, claim_text_after)
+        if drift is not None:
+            return max(0.0, min(1.0, drift))
 
-    # Budget signals
+    # Path 2: graph-based delta (PRIMARY for forge_env.py episodes)
+    # This is non-zero because Red Team mutates the ClaimGraph even
+    # when claim_text stays the same.
+    if claim_graph_before is not None and claim_graph_after is not None:
+        try:
+            plb_before = compute_plausibility(claim_graph_before)
+            plb_after  = compute_plausibility(claim_graph_after)
+            delta = plb_before - plb_after
+            return float(max(-1.0, min(1.0, delta)))
+        except Exception:
+            pass
+
+    # Path 3: text-only fallback (last resort)
+    plb_before = plausibility_score(claim_text_before)
+    plb_after  = plausibility_score(claim_text_after)
+    return float(max(-1.0, min(1.0, plb_before - plb_after)))
+
+
+def compute_reward(
+    *,
+    predicted_chains: List[List[PrimitiveType]],
+    true_chain: List[PrimitiveType],
+    claim_text_before: str,
+    claim_text_after: str,
+    consensus_level: str,
+    expert_decision: str,
     steps_taken: int,
     budget_limit: int,
     useful_tools_called: int,
-
-    # Optional graphs for richer plausibility scoring (CRITICAL BUG 1 FIX).
-    # Pass separate before/after graph objects so plb_delta != 0.
-    # Legacy single-graph callers may pass claim_graph= for backward compat;
-    # that path falls back to text-only scoring.
-    claim_graph=None,           # deprecated: use claim_graph_before + claim_graph_after
-    claim_graph_before=None,    # ClaimGraph at episode start (from reset)
-    claim_graph_after=None,     # ClaimGraph at episode end   (after Red actions)
+    claim_graph=None,          # deprecated — use before/after
+    claim_graph_before=None,
+    claim_graph_after=None,
 ) -> RewardBreakdown:
     """
-    Compute the full hierarchical reward for one episode end.
-
-    Parameters are keyword-only to prevent positional mis-ordering.
+    Compute full hierarchical reward. Output always in (0.001, 0.999).
     """
-    # ── TED: mean over all agent predictions ──────────────────────────────────
-    # Using max() over 4 chains over-rewards one lucky sample and is easy to
-    # game with noisy multi-sampling. Mean TED rewards consistent quality.
+    # ── TED: mean over all agent predictions ────────────────────────
+    # Mean rewards consistent quality across the ensemble.
+    # Max() over 4 chains is easily gamed by one lucky sample.
+    if not predicted_chains:
+        predicted_chains = [[]]
     teds = [tactic_edit_distance(pc, true_chain) for pc in predicted_chains]
     ted_mean = sum(teds) / len(teds) if teds else 0.001
     ted_component = W_TED * ted_mean
 
-    # ── TPR F1 (mean per-chain F1) ─────────────────────────────────────────────
-    # Union-based F1 inflates score because 4 weak chains can cover the set
-    # collectively even if no single chain is good.
-    f1s = [tactic_f1(chain, true_chain) for chain in predicted_chains] if predicted_chains else [0.001]
-    f1 = sum(f1s) / len(f1s)
-    f1_component = W_F1 * f1
+    # ── TPR F1 ───────────────────────────────────────────────────────
+    f1s = [tactic_f1(chain, true_chain) for chain in predicted_chains]
+    f1_mean = sum(f1s) / len(f1s) if f1s else 0.001
+    f1_component = W_F1 * f1_mean
 
-    # ── Plausibility delta ────────────────────────────────────────────────────
-    # Primary signal: sentence-transformer cosine drift between the original
-    # claim and the post-Red-actions claim. A real semantic shift produces a
-    # non-zero delta; the previous regex/word-count scorer would return ~0
-    # for typical Red perturbations because it only measured surface features.
-    #
-    # Fallbacks (in order):
-    #   1. semantic_drift_delta(before, after) — sentence-transformer
-    #   2. compute_plausibility on before+after graphs
-    #   3. regex plausibility_score on raw text
-    plb_delta: float
-    drift = semantic_drift_delta(claim_text_before, claim_text_after)
-    if drift is not None:
-        # drift in [0, 2]; clamp to [0, 1] so it lives on the same scale as
-        # the regex scorer and the existing W_PLB weight stays meaningful.
-        plb_delta = max(0.0, min(1.0, drift))
-    elif claim_graph_before is not None and claim_graph_after is not None:
-        try:
-            plb_before = compute_plausibility(claim_graph_before)
-            plb_after  = compute_plausibility(claim_graph_after)
-            plb_delta = plb_before - plb_after
-        except Exception:
-            plb_before = plausibility_score(claim_text_before)
-            plb_after  = plausibility_score(claim_text_after)
-            plb_delta = plb_before - plb_after
-    else:
-        plb_before = plausibility_score(claim_text_before)
-        plb_after  = plausibility_score(claim_text_after)
-        plb_delta = plb_before - plb_after
+    # ── Plausibility delta ───────────────────────────────────────────
+    # FIX: now uses graph-based path as primary (text path was always 0)
+    plb_delta = _compute_plausibility_delta(
+        claim_text_before, claim_text_after,
+        claim_graph_before, claim_graph_after,
+    )
+    plb_component = W_PLB * plb_delta
 
-    plb_component = W_PLB * max(-1.0, min(1.0, plb_delta))
-
-    # ── Consensus bonus ───────────────────────────────────────────────────────
+    # ── Consensus bonus ──────────────────────────────────────────────
     con_bonus = CONSENSUS_BONUS.get(consensus_level, -0.05)
 
-    # ── Expert bonus ──────────────────────────────────────────────────────────
+    # ── Expert bonus — FIX: now uses correct +0.15 / -0.10 values ───
     exp_bonus = (
         EXPERT_APPROVE_BONUS if expert_decision.upper() == "APPROVE"
-        else EXPERT_REJECT_BONUS
+        else EXPERT_REJECT_BONUS if expert_decision.upper() == "REJECT"
+        else 0.0
     )
 
-    # ── Budget penalty ────────────────────────────────────────────────────────
-    budget_result = compute_budget_penalty(steps_taken, budget_limit, useful_tools_called)
+    # ── Budget penalty ───────────────────────────────────────────────
+    budget_result = compute_budget_penalty(
+        steps_taken, budget_limit, useful_tools_called
+    )
 
-    # ── Anti-hacking components (PRD v8.1 §5) ─────────────────────────────────
-    entropy_bonus    = _chain_entropy_bonus(predicted_chains, ted_mean)
-    length_penalty   = _chain_length_penalty(predicted_chains, true_chain)
+    # ── Anti-hacking ────────────────────────────────────────────────
+    entropy_bonus  = _chain_entropy_bonus(predicted_chains, ted_mean)
+    length_penalty = _chain_length_penalty(predicted_chains, true_chain)
 
-    # ── Composite ────────────────────────────────────────────────────────────
+    # ── Composite ────────────────────────────────────────────────────
     raw_total = (
         ted_component
         + f1_component
@@ -272,16 +265,19 @@ def compute_reward(
         + entropy_bonus
         + length_penalty
     )
-    clipped = max(-1.0, min(1.0, raw_total))
+
+    # FIX: clip to (0.001, 0.999) — OpenEnv spec compliance
+    # Previous [-1.0, 1.0] clip violated the declared reward_range.
+    clipped = max(0.001, min(0.999, raw_total))
 
     return RewardBreakdown(
-        ted_component=ted_component,
-        f1_component=f1_component,
-        plausibility_delta=plb_component,
-        consensus_bonus=con_bonus,
-        expert_bonus=exp_bonus,
+        ted_component=round(ted_component, 6),
+        f1_component=round(f1_component, 6),
+        plausibility_delta=round(plb_component, 6),
+        consensus_bonus=round(con_bonus, 6),
+        expert_bonus=round(exp_bonus, 6),
         budget=budget_result,
-        chain_entropy_bonus=entropy_bonus,
-        chain_length_penalty=length_penalty,
-        total=clipped,
+        chain_entropy_bonus=round(entropy_bonus, 6),
+        chain_length_penalty=round(length_penalty, 6),
+        total=round(clipped, 6),
     )

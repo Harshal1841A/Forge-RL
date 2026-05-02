@@ -65,8 +65,25 @@ def verdict_reward(
     Composite terminal reward:
       base + calibration_bonus + efficiency_bonus + manipulation_component
     """
-    # ── Base ──────────────────────────────────────────────────────────────────
-    correct = (predicted_label == true_label)
+    # ── Label normalisation (FIX: "verified" must equal "real") ─────
+    VERDICT_NORMALISE = {
+        "verified":       "real",
+        "verified_fact":  "real",
+        "real_news":      "real",
+        "fabricated":     "misinfo",
+        "fake":           "misinfo",
+        "out_of_context": "misinfo",
+        "satire_news":    "satire",
+        "coordinated":    "misinfo",
+    }
+
+    def _norm(label: str) -> str:
+        return VERDICT_NORMALISE.get(
+            (label or "").lower().strip(),
+            (label or "").lower().strip()
+        )
+
+    correct = (_norm(predicted_label) == _norm(true_label))
     base = config.REWARD_CORRECT_VERDICT if correct else config.REWARD_WRONG_VERDICT
 
     # Introduce partial credit for getting the macro category (misinfo vs real) correct

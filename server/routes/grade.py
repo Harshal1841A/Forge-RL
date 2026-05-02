@@ -9,6 +9,41 @@ from server.state import EPISODE_STORE
 from env.misinfo_env import MisInfoForensicsEnv
 import sqlite3
 
+VERDICT_NORMALISE = {
+    "verified":       "real",
+    "verified_fact":  "real",
+    "real_news":      "real",
+    "fabricated":     "misinfo",
+    "fake":           "misinfo",
+    "out_of_context": "misinfo",
+    "satire_news":    "satire",
+    "coordinated":    "misinfo",
+}
+
+EQUIVALENT_GROUPS = [
+    frozenset({"real", "verified", "verified_fact", "real_news"}),
+    frozenset({"misinfo", "fabricated", "fake", "out_of_context",
+               "coordinated", "satire"}),
+    frozenset({"satire", "satire_news", "parody"}),
+]
+
+def _labels_match(a: str, b: str) -> bool:
+    """True if a and b refer to the same verdict category."""
+    a = (a or "").lower().strip()
+    b = (b or "").lower().strip()
+    if a == b:
+        return True
+    # Normalise both
+    a = VERDICT_NORMALISE.get(a, a)
+    b = VERDICT_NORMALISE.get(b, b)
+    if a == b:
+        return True
+    # Check equivalence groups
+    for group in EQUIVALENT_GROUPS:
+        if a in group and b in group:
+            return True
+    return False
+
 router = APIRouter()
 
 DB_PATH = "forge.db"
@@ -56,7 +91,7 @@ def auto_grade_episode(episode_id: str, record: dict) -> None:
             verdict = true_label
             record["verdict"] = verdict
 
-        correct    = bool(verdict == true_label) if verdict else False
+        correct    = _labels_match(verdict, true_label) if verdict else False
         oracle     = task.oracle_steps(graph) if task and graph and hasattr(task, "oracle_steps") else 5
         steps      = getattr(env, "steps", 1)
         efficiency = min(oracle / max(steps, 1), 1.0)
@@ -162,7 +197,7 @@ async def get_grade(episode_id: str):
     if not verdict and true_label != "unknown":
         verdict = true_label
         record["verdict"] = verdict
-    correct = (verdict == true_label) if verdict else False
+    correct = _labels_match(verdict, true_label) if verdict else False
 
     # Efficiency: oracle steps / actual steps (capped at 1.0)
     oracle_steps = task.oracle_steps(graph) if task and graph else 5
