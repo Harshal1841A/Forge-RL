@@ -244,6 +244,20 @@ function makeLog(actionName: string, reward?: number, obs?: TypedObservation, ta
   return { id: ++_logCounter, action: actionName, text, ts, reward, agent };
 }
 
+function _getSessionAgentId(): string {
+  if (typeof window === "undefined") return "ssr_visitor";
+  const KEY = "forge_agent_id";
+  let id = localStorage.getItem(KEY);
+  if (!id || id === "web_visitor") {
+    // Generate unique ID — timestamp + random suffix
+    const ts = Date.now().toString(36).slice(-4);
+    const rnd = Math.random().toString(36).slice(2, 6);
+    id = `agent_${ts}${rnd}`;
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 export const useForgeStore = create<ForgeState>((set, get) => ({
   serverOnline: false,
@@ -343,9 +357,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     try {
       const res = await forge.reset({
         taskName: selectedTaskName ?? undefined,
-        agentId: typeof window !== "undefined"
-          ? localStorage.getItem("forge_agent_id") ?? "web_visitor"
-          : "web_visitor",
+        agentId: _getSessionAgentId(),
       });
       const initLog: LogEntry = {
         id: 1,

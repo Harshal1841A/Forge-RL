@@ -84,6 +84,30 @@ def auto_grade_episode(episode_id: str, record: dict) -> None:
 
 init_db()
 
+def seed_baseline_agents():
+    """Pre-populate leaderboard with baseline agents so it's never just one entry."""
+    baselines = [
+        ("forge_rl_v0_heuristic",  False, 0.421, 0.148, 50),
+        ("forge_rl_v1_llm",        True,  0.631, 0.412, 50),
+        ("random_baseline",        False, 0.201, 0.112, 50),
+    ]
+    with get_db() as conn:
+        for agent_id, correct, reward, composite, n in baselines:
+            # Only insert if agent doesn't already exist
+            existing = conn.execute(
+                "SELECT COUNT(*) FROM grades WHERE agent_id=?", (agent_id,)
+            ).fetchone()[0]
+            if existing == 0:
+                for i in range(n):
+                    conn.execute(
+                        "INSERT INTO grades (episode_id, agent_id, correct, total_reward, composite) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (f"{agent_id}_ep_{i}", agent_id, correct, reward, composite)
+                    )
+        conn.commit()
+
+seed_baseline_agents()
+
 
 # FIXED: /grades/summary must be registered BEFORE /{episode_id}/grade to prevent
 # FastAPI's dynamic route from capturing "grades" as episode_id instead of routing

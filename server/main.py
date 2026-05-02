@@ -350,27 +350,39 @@ def create_app() -> FastAPI:
             rows = conn.execute("""
                 SELECT 
                     agent_id,
-                    AVG(correct) as accuracy,
-                    AVG(composite) as mean_reward,
-                    COUNT(*) as episodes_played
+                    COUNT(*) as runs,
+                    ROUND(AVG(CAST(correct AS FLOAT)) * 100, 1) as accuracy_pct,
+                    ROUND(AVG(total_reward), 3) as mean_reward,
+                    ROUND(AVG(composite), 3) as mean_composite
                 FROM grades
                 GROUP BY agent_id
-                ORDER BY accuracy DESC
+                ORDER BY mean_reward DESC
+                LIMIT 20
             """).fetchall()
-            
-        if not rows:
-            return {"entries": [], "message": "No completed episodes yet."}
-            
-        board = [
-            {
-                "agent_id": row["agent_id"],
-                "accuracy": round(row["accuracy"], 4),
-                "mean_reward": round(row["mean_reward"], 4),
-                "episodes_played": row["episodes_played"]
-            }
-            for row in rows
-        ]
-        return {"entries": board}
+
+        entries = []
+        for i, row in enumerate(rows, 1):
+            acc = float(row["accuracy_pct"] or 0)
+            reward = float(row["mean_reward"] or 0)
+            badge = (
+                "Expert Forensic Analyst" if reward > 0.70 else
+                "Senior Investigator"     if reward > 0.50 else
+                "Junior Investigator"     if reward > 0.30 else
+                "Trainee"
+            )
+            entries.append({
+                "rank":       i,
+                "agent_id":   row["agent_id"],
+                "accuracy":   acc,
+                "mean_reward": reward,
+                "runs":       row["runs"],
+                "badge":      badge,
+            })
+
+        return {
+            "entries": entries,
+            "total_agents": len(entries),
+        }
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
