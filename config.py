@@ -19,10 +19,10 @@ OPENAI_API_KEY_AUDITOR: str = os.getenv("OPENAI_API_KEY_AUDITOR", OPENAI_API_KEY
 API_BASE_URL: str      = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
 MODEL_NAME: str        = os.getenv("MODEL_NAME", "llama3-70b-8192")
 
-# Cerebras → Context Historian (llama3.1-70b, free at cloud.cerebras.ai)
+# Cerebras → Context Historian (llama3.1-8b, free at cloud.cerebras.ai)
 CEREBRAS_API_KEY: str  = os.getenv("CEREBRAS_API_KEY", OPENAI_API_KEY)
 CEREBRAS_BASE_URL: str = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
-CEREBRAS_MODEL: str    = os.getenv("CEREBRAS_MODEL", "llama3.1-70b")
+CEREBRAS_MODEL: str    = os.getenv("CEREBRAS_MODEL", "llama3.1-8b")
 
 # Mistral → Narrative Critic (mistral-small-latest, free at console.mistral.ai)
 MISTRAL_API_KEY: str   = os.getenv("MISTRAL_API_KEY", OPENAI_API_KEY)
@@ -32,7 +32,7 @@ MISTRAL_MODEL: str     = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 # OpenRouter → NegotiatedSearch agents (free models, free at openrouter.ai)
 OPENROUTER_API_KEY: str  = os.getenv("OPENROUTER_API_KEY", OPENAI_API_KEY)
 OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-OPENROUTER_MODEL: str    = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3-8b-instruct:free")
+OPENROUTER_MODEL: str    = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
 
 # Per-agent provider routing
 AGENT_AUDITOR_PROVIDER: str    = os.getenv("AGENT_AUDITOR_PROVIDER", "groq")

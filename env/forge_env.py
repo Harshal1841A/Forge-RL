@@ -1,18 +1,7 @@
 """
-FORGE-RL Gymnasium-compatible Environment.
-SPEC (Master Prompt §Layer7):
-  - step() returns (obs, reward, terminated, truncated, info)
-  - Episode budget: 10 steps default, configurable
-  - Red agent perturbs claim graph each step
-  - Blue team evaluates at episode end
-  - reward computed via hierarchical_reward shaper
-  - reset() seeds a new claim and clears all episode state
-  - Observation space: flat dict with claim text + budget remaining
-
-High Bug H2 fix: step() was text-appending primitive names instead of
-building a ClaimGraph. Now maintains a real ClaimGraph, adding ClaimNode
-with DISARM fingerprints per Red action. GIN receives the real graph
-at evaluate time, not a structurally empty dummy.
+FORGE-RL Gymnasium-compatible adversarial environment.
+step() returns (obs, reward, terminated, truncated, info).
+Blue GIN evaluates the claim graph at episode end.
 """
 from __future__ import annotations
 import copy
@@ -33,18 +22,12 @@ from rewards.red_step_reward import RedStepReward
 from red_team.red_agent import RedAgent
 from runtime import get_blue_gin
 
-# Sample claims for demo episodes (no LLM needed).
-#
-# Manipulated claims (true_chain non-empty) and real-news claims (true_chain empty)
-# must both appear so the Blue GIN learns the "no manipulation" decision boundary.
 _DEMO_CLAIMS = [
-    # ── Manipulated ──────────────────────────────────────────────────────────
     ("Vaccines cause autism, leaked documents confirm.", [PrimitiveType.QUOTE_FABRICATE, PrimitiveType.SOURCE_LAUNDER]),
     ("Video shows 2015 protest mislabelled as 2024 riots.", [PrimitiveType.TEMPORAL_SHIFT, PrimitiveType.CONTEXT_STRIP]),
     ("Politician quoted saying 'immigrants are criminals' — source: satirical site.", [PrimitiveType.SATIRE_REFRAME, PrimitiveType.QUOTE_FABRICATE]),
     ("Study claims 90% efficacy — journal retracted, still circulating.", [PrimitiveType.CITATION_FORGE, PrimitiveType.NETWORK_AMPLIFY]),
     ("Scientist replaced with lookalike in doctored photo.", [PrimitiveType.ENTITY_SUBSTITUTE]),
-    # ── Real news (empty chain) — required so Blue can learn the negative class.
     ("NASA's Perseverance rover collected its 24th rock sample on Mars.", []),
     ("The European Central Bank held its benchmark interest rate steady at the September meeting.", []),
     ("Researchers at MIT published a peer-reviewed paper on lithium-sulfur battery cycle stability.", []),
@@ -114,15 +97,18 @@ class ForgeEnv:
         self.red_agent.reset()
         self.red_step_rewarder.reset()
 
-        # H2: initialise real ClaimGraph with root node.
-        # Critical-1 fix: keep a pristine copy so reward shaper gets a genuine
-        # before/after pair for the plausibility delta.
         with self._graph_lock:
             self._claim_graph = self._build_initial_graph(claim_text)
-            self._initial_claim_graph = self._build_initial_graph(claim_text)  # immutable snapshot
+            self._initial_claim_graph = self._build_initial_graph(claim_text)
 
         obs = self._build_obs()
-        info = {"true_chain": [p.value for p in true_chain]}
+        info = {
+            "true_chain":       [p.value for p in true_chain],   # strings
+            "true_chain_enums": list(true_chain),                # PrimitiveType enums
+            "claim_text":       claim_text,
+            "episode_id":       str(uuid.uuid4())[:8],
+            "task":             "forge_ma_adversarial",
+        }
         return obs, info
 
     def reset_from_r1(
@@ -134,11 +120,7 @@ class ForgeEnv:
     ) -> tuple:
         """
         Pipeline-mode reset (Master Prompt v9.0 §3.2).
-
         Starts from a pre-built R1→R2 converted graph instead of a demo claim.
-        Both _initial_claim_graph AND _claim_graph are set to the R1 graph
-        (Red Team perturbs from this richer starting point).
-        _initial_claim_graph is a deep copy so plausibility delta is non-zero.
         """
         if seed is not None:
             random.seed(seed)
@@ -152,6 +134,48 @@ class ForgeEnv:
         self._red_step_rewards = []
         self._episode_output = None
 
+        # Convert R1 graph to R2 graph if necessary
+        from env.claim_graph_ma import ClaimGraph as R2ClaimGraph, ClaimNode as R2ClaimNode, EvidenceEdge as R2EvidenceEdge
+        
+        if not isinstance(initial_graph, R2ClaimGraph):
+            r2_nodes = []
+            r1_nodes = getattr(initial_graph, "nodes", {})
+            if isinstance(r1_nodes, dict):
+                r1_node_list = list(r1_nodes.values())
+            else:
+                r1_node_list = list(r1_nodes)
+                
+            for node in r1_node_list:
+                node_id = getattr(node, "id", getattr(node, "node_id", str(id(node))))
+                r2_node = R2ClaimNode(
+                    id=node_id,
+                    text=node.text if hasattr(node, "text") else str(node),
+                    domain=getattr(node, "domain", "unknown"),
+                    trust_score=getattr(node, "trust_score", 0.5),
+                    is_retrieved=getattr(node, "is_retrieved", False),
+                    injected=getattr(node, "injected", False),
+                    primitive=None,
+                    fingerprints={},
+                )
+                r2_nodes.append(r2_node)
+                
+            r2_edges = []
+            for edge in getattr(initial_graph, "edges", []):
+                r2_edge = R2EvidenceEdge(
+                    source_id=getattr(edge, "source", getattr(edge, "source_id", "")),
+                    target_id=getattr(edge, "target", getattr(edge, "target_id", "")),
+                    relation=getattr(edge, "relation", "unknown"),
+                    weight=getattr(edge, "weight", 0.5),
+                    injected=getattr(edge, "injected", False)
+                )
+                r2_edges.append(r2_edge)
+                
+            initial_graph = R2ClaimGraph(
+                nodes=r2_nodes,
+                edges=r2_edges,
+                root_id=getattr(initial_graph, "root_claim_id", getattr(initial_graph, "root_id", "root-0"))
+            )
+
         # Both initial and current start as the R1-converted graph.
         # Deep copy ensures they are separate objects so plb_delta != 0.
         with self._graph_lock:
@@ -163,8 +187,12 @@ class ForgeEnv:
 
         obs = self._build_obs()
         info = {
-            "true_chain": [p.value for p in true_chain],
-            "pipeline_mode": True,
+            "true_chain":       [p.value for p in true_chain],
+            "true_chain_enums": list(true_chain),
+            "claim_text":       claim_text,
+            "episode_id":       str(uuid.uuid4())[:8],
+            "task":             "forge_ma_adversarial",
+            "pipeline_mode":    True,
         }
         return obs, info
 
@@ -327,72 +355,109 @@ class ForgeEnv:
 
         return x, edge_index
 
-    def _build_obs(self) -> Dict:
+    def _build_obs(self) -> "np.ndarray":
+        """
+        Returns flat numpy array compatible with Gymnasium spec.
+        FIX 5C: was returning dict — Gymnasium requires np.ndarray.
+        PPOAgent._flatten_obs() now passes through directly.
+        """
+        import numpy as np
+        with self._graph_lock:
+            budget_remaining = max(0, self.config.budget - self._steps)
+            graph_nodes = len(self._claim_graph.nodes) if self._claim_graph else 0
+
+        obs = np.zeros(3859, dtype=np.float32)
+        obs[0] = float(budget_remaining) / max(self.config.budget, 1)
+        obs[1] = float(self._steps) / max(self.config.budget, 1)
+        obs[2] = min(float(graph_nodes) / 20.0, 1.0)
+
+        # Red chain one-hot: 8 primitives × 4 slots = 32 dims at indices 3–34
+        all_prims = list(PrimitiveType)
+        n_prims = len(all_prims)  # 8
+        chain = self.red_agent.current_chain
+        for slot in range(4):
+            for prim_idx, prim in enumerate(all_prims):
+                feat_idx = 3 + slot * n_prims + prim_idx
+                if feat_idx >= 3859:
+                    break
+                obs[feat_idx] = 1.0 if (
+                    slot < len(chain) and chain[slot] == prim
+                ) else 0.0
+
+        return obs
+
+    def _build_obs_dict(self) -> dict:
+        """
+        Returns dict observation for Society/LLM consumers that need claim_text.
+        Use _build_obs() for Gymnasium-compatible numpy obs.
+        """
         with self._graph_lock:
             return {
-                "claim_text":        self._claim_text,
-                "budget_remaining":  max(0, self.config.budget - self._steps),
-                "steps_taken":       self._steps,
-                "red_chain":         [p.value for p in self.red_agent.current_chain],
-                "graph_nodes":       len(self._claim_graph.nodes) if self._claim_graph else 0,
+                "claim_text":       self._claim_text,
+                "budget_remaining": max(0, self.config.budget - self._steps),
+                "steps_taken":      self._steps,
+                "red_chain":        [p.value for p in self.red_agent.current_chain],
+                "graph_nodes":      len(self._claim_graph.nodes)
+                                    if self._claim_graph else 0,
             }
 
     def _evaluate_episode(self) -> Tuple[float, "EpisodeOutput"]:
         """
-        Run GIN + real ExpertReviewerAgent and compute hierarchical reward.
+        Run SocietyOfThought + real ExpertReviewerAgent and compute hierarchical reward.
 
         FIX 1: ExpertReviewerAgent is now called properly.
         FIX 2: Consensus detection uses a min-diversity guard to prevent
                 unanimous=+0.10 becoming a free bonus after convergence.
         """
-        x, edge_index = self._graph_to_tensors()
+        # 1. Start Blue Team Society of Thought
+        if not hasattr(self, 'society'):
+            # Factory method handles all 4 agents + GIN
+            from blue_team.society_of_thought import SocietyOfThought
+            self.society = SocietyOfThought.create_default(gin=self.gin)
 
-        class _G:
-            pass
-        g = _G()
-        g.x = x
-        g.edge_index = edge_index
-        g.batch = torch.zeros(x.size(0), dtype=torch.long)
+        with self._graph_lock:
+            current_graph = self._claim_graph
 
-        gin_result = self.gin.predict_chain(g)
-        predicted_chain = gin_result["ordered_chain"]
-        gin_confidence  = gin_result.get("confidence", 0.5)
+        # FIX 5B: pre-declare _society_result so it survives the try/except
+        _society_result = None
+        society_verdict = "unknown"
 
-        # MC-Dropout ensemble — 4 stochastic forward passes
-        ensemble = self.gin.predict_chain_ensemble(g, n_agents=4)
-        predicted_chains_ensemble = (
-            [m["ordered_chain"] for m in ensemble]
-            if ensemble else [predicted_chain]
-        )
-
-        # ── Consensus level ─────────────────────────────────────────────
-        # FIX: add diversity guard — if all 4 chains are empty lists,
-        # this is NOT a meaningful "unanimous" agreement, it is model
-        # abstention. Treat as all_different to avoid free +0.10 bonus.
-        from collections import Counter
-        chain_keys = [
-            tuple(
-                p.value if hasattr(p, "value") else str(p)
-                for p in c
+        # 2. Run the investigation
+        try:
+            society_result = self.society.investigate(
+                claim=self._claim_text,
+                true_chain=self._true_chain,
+                budget=self.config.budget,
+                claim_graph=current_graph
             )
-            for c in predicted_chains_ensemble
-        ]
-        all_empty = all(len(k) == 0 for k in chain_keys)
-        if all_empty:
-            consensus_level = "all_different"  # abstention is not consensus
-        elif chain_keys:
-            top_count = Counter(chain_keys).most_common(1)[0][1]
-            n_total = len(chain_keys)
-            if top_count == n_total:
-                consensus_level = "unanimous"
-            elif top_count >= 3:
-                consensus_level = "majority_3"
-            elif top_count == 2:
-                consensus_level = "split_2_2"
-            else:
-                consensus_level = "all_different"
-        else:
-            consensus_level = "all_different"
+            _society_result = society_result
+            society_verdict = society_result.agent_verdicts.get("gin", "unknown")
+        except Exception as _soe:
+            import logging as _log
+            _log.getLogger("forge.env").warning(
+                "SocietyOfThought.investigate failed: %s", _soe
+            )
+            # Build a minimal stub so the rest of _evaluate_episode can proceed
+            class _StubResult:
+                predicted_chain = []
+                consensus_level = 0.0
+                agent_confidences = {"gin": 0.5}
+                agent_verdicts = {"gin": "unknown"}
+                agent_chains = {}
+            _society_result = _StubResult()
+            society_result = _society_result
+
+        predicted_chain = society_result.predicted_chain
+        consensus_level = society_result.consensus_level
+        gin_confidence = society_result.agent_confidences.get("gin", 0.5)
+        gin_result = {"verdict": society_verdict}
+
+        predicted_chains_ensemble = []
+        for agent_name, chain in society_result.agent_chains.items():
+            if chain:
+                predicted_chains_ensemble.append(chain)
+        if not predicted_chains_ensemble:
+            predicted_chains_ensemble = [predicted_chain]
 
         # ── Expert decision — FIX: call real ExpertReviewerAgent ────────
         # Previously hardcoded to:
@@ -477,7 +542,12 @@ class ForgeEnv:
             steps_taken=self._steps,
             budget_limit=self.config.budget,
             useful_tools=self._useful_tools,
-            agent_verdicts={"gin": gin_result.get("verdict", "unknown")},
+            # FIX 5B: use real per-agent verdicts from _society_result
+            agent_verdicts=(
+                _society_result.agent_verdicts
+                if _society_result is not None
+                else {"gin": gin_result.get("verdict", "unknown")}
+            ),
             red_step_rewards=self._red_step_rewards,
         )
         return r.total, ep

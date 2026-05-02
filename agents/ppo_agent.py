@@ -118,15 +118,80 @@ class PPOAgent:
 
     # ── Training ──────────────────────────────────────────────────────────────
 
-    def collect_rollout(self, env: MisInfoForensicsEnv) -> Dict[str, float]:
+    @staticmethod
+    def _flatten_obs_static(obs: Any, obs_dim: int = 3859) -> np.ndarray:
+        """
+        Class-level version of _flatten_obs — callable without an agent instance.
+        Used by server routes (episode.py, step.py) to convert ForgeEnv dict obs
+        to a flat numpy array without constructing a full PPOAgent.
+        """
+        if isinstance(obs, np.ndarray):
+            flat = obs
+        else:
+            budget = float(obs.get("budget_remaining", 10.0))
+            steps = float(obs.get("steps_taken", 0.0))
+            nodes = float(obs.get("graph_nodes", 1.0))
+            from env.primitives import PrimitiveType
+            all_prims = list(PrimitiveType)
+            red_chain = obs.get("red_chain", [])
+            chain_arr = np.zeros(4, dtype=np.float32)
+            for i, val in enumerate(red_chain[:4]):
+                try:
+                    prim = PrimitiveType(val)
+                    idx = all_prims.index(prim)
+                except ValueError:
+                    idx = 0
+                chain_arr[i] = float(idx)
+            flat = np.concatenate([[budget, steps, nodes], chain_arr])
+        if len(flat) < obs_dim:
+            flat = np.pad(flat, (0, obs_dim - len(flat)))
+        elif len(flat) > obs_dim:
+            flat = flat[:obs_dim]
+        return flat.astype(np.float32)
+
+    def _flatten_obs(self, obs: Any) -> np.ndarray:
+        if isinstance(obs, np.ndarray):
+            return obs
+        # R2 ForgeEnv dict observation
+        budget = obs.get("budget_remaining", 10.0)
+        steps = obs.get("steps_taken", 0.0)
+        nodes = obs.get("graph_nodes", 1.0)
+        
+        # Pad or truncate red_chain to 4
+        from env.primitives import PrimitiveType
+        all_prims = list(PrimitiveType)
+        red_chain = obs.get("red_chain", [])
+        chain_arr = np.zeros(4, dtype=np.float32)
+        for i, val in enumerate(red_chain[:4]):
+            try:
+                prim = PrimitiveType(val)
+                idx = all_prims.index(prim)
+            except ValueError:
+                idx = 0
+            chain_arr[i] = float(idx)
+            
+        flat = np.concatenate([[budget, steps, nodes], chain_arr])
+        # ensure it matches obs_dim
+        if len(flat) < self.obs_dim:
+            flat = np.pad(flat, (0, self.obs_dim - len(flat)))
+        elif len(flat) > self.obs_dim:
+            flat = flat[:self.obs_dim]
+        return flat.astype(np.float32)
+
+    def collect_rollout(self, env: Any) -> Dict[str, float]:
         """Collect one full buffer of experience."""
+        if type(env).__name__ == "MisInfoForensicsEnv":
+            logger.warning("Using deprecated R1 MisInfoForensicsEnv. Please migrate to ForgeEnv (R2).")
+
         obs, _ = env.reset()
+        obs = self._flatten_obs(obs)
         ep_reward = 0.0
         completed_eps = 0
 
         for _ in range(config.PPO_TRAIN_BATCH):
             action, log_prob, value = self.act(obs)
             next_obs, reward, terminated, truncated, info = env.step(action)
+            next_obs = self._flatten_obs(next_obs)
             done = terminated or truncated
 
             # FIXED: Only store 'terminated' as the done flag for GAE.
@@ -141,6 +206,7 @@ class PPOAgent:
                 ep_reward = 0.0
                 completed_eps += 1
                 obs, _ = env.reset()
+                obs = self._flatten_obs(obs)
 
         # Compute GAE using bootstrap value
         _, _, last_value = self.act(obs)

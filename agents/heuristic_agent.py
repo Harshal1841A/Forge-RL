@@ -31,23 +31,40 @@ class HeuristicAgent:
         self._flagged = False
         self._tool_used = set()
 
-    def act(self, obs: np.ndarray, info: dict = None, **kwargs) -> int:
+    def act(self, obs, info: dict = None, **kwargs) -> int:
         """
         Select the next action based on structured observation fields.
 
-        Uses MisInfoForensicsEnv.parse_observation() so that changes to the
-        observation layout (embed dim, N_ACTIONS, scalar order) are handled
-        in one place rather than requiring manual index arithmetic here.
+        Supports both:
+          - R1 (MisInfoForensicsEnv) flat numpy array observations
+          - R2 (ForgeEnv) dict observations
+
+        When obs is a dict (ForgeEnv), synthesises the parsed fields from
+        available keys rather than delegating to the R1 parse_observation API.
         """
         from env.misinfo_env import ACTIONS
 
-        # ── Parse observation through the stable API ──────────────────────────
-        parsed = MisInfoForensicsEnv.parse_observation(obs)
-        hist = parsed["tool_history"]
-        coverage = parsed["evidence_coverage"]
-        contra_norm = parsed["contradiction_norm"]
-        flagged = parsed["manipulation_flagged"]
-        budget = parsed["budget_remaining"]
+        # ── Parse observation — dual-format support ───────────────────────────
+        if isinstance(obs, dict):
+            # ForgeEnv (R2) dict observation path
+            n_actions = N_ACTIONS
+            budget_raw = obs.get("budget_remaining", 10.0)
+            budget_max = budget_raw + obs.get("steps_taken", 0.0)
+            budget = budget_raw / max(budget_max, 1.0)  # normalise to [0,1]
+            # No detailed tool history available from ForgeEnv obs — use step count proxy
+            steps = obs.get("steps_taken", 0)
+            hist = [0] * n_actions
+            coverage = min(1.0, steps / 6.0)
+            contra_norm = min(1.0, len(obs.get("red_chain", [])) * 0.2)
+            flagged = len(obs.get("red_chain", [])) >= 2
+        else:
+            # R1 flat numpy array path
+            parsed = MisInfoForensicsEnv.parse_observation(obs)
+            hist = parsed["tool_history"]
+            coverage = parsed["evidence_coverage"]
+            contra_norm = parsed["contradiction_norm"]
+            flagged = parsed["manipulation_flagged"]
+            budget = parsed["budget_remaining"]
 
         def used(action_name: str) -> bool:
             idx = ACTIONS.index(action_name)

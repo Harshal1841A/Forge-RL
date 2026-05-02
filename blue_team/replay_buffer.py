@@ -63,6 +63,7 @@ class ReplayBuffer:
     ):
         self.capacity = capacity
         self._threshold = min_reward_threshold
+        self.min_reward_threshold = min_reward_threshold
         self.target_acceptance_rate = target_acceptance_rate
         self.threshold_lr = threshold_lr
 
@@ -99,6 +100,7 @@ class ReplayBuffer:
         """
         schedule = {0: 0.35, 1: 0.50}
         self._threshold = schedule.get(gen, 0.60)
+        self.min_reward_threshold = self._threshold
         self._generation = gen
 
     def add(self, episode: EpisodeOutput) -> bool:

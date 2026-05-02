@@ -27,7 +27,7 @@ def main():
     parser.add_argument("--seed",              type=int, default=42)
     args = parser.parse_args()
 
-    from env.misinfo_env import MisInfoForensicsEnv
+    from env.forge_env import ForgeEnv
     try:
         from agents.adversarial.self_play import SelfPlayTrainer
     except ImportError:
@@ -38,8 +38,8 @@ def main():
         )
         raise SystemExit(1)
 
-    env = MisInfoForensicsEnv()
-    obs_dim = env.observation_space.shape[0]
+    env = ForgeEnv()
+    obs_dim = env.observation_space.shape[0] if hasattr(env, 'observation_space') else 7
 
     trainer = SelfPlayTrainer(
         obs_dim=obs_dim,

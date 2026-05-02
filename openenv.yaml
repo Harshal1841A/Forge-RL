@@ -6,6 +6,11 @@ app: server.app:app
 port: 7860
 observation_space:
   type: Box
+  shape: [3859]
+  dtype: float32
+action_space:
+  type: Discrete
+  n: 13
 reward_range: [0.001, 0.999]
 tasks:
   - id: fabricated_stats

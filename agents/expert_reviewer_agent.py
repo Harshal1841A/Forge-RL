@@ -22,17 +22,21 @@ class ExpertReviewerAgent:
         """Evaluate 4 expert profiles. Returns dict of boolean APPROVE/REJECT."""
         votes = {}
         
+        # Tool call proxy until granular tracking is implemented
+        # Assume at least 1 tool call per step up to budget limit
+        proxy_tools = max(tools_called, min(steps, 10))
+        
         # Determine generation bracket
         if generation <= 1:
             votes["legal"] = (recall > 0.55) and (confidence > 0.65) and (hallucinations < 2)
             votes["fast"] = verdict_correct and (recall > 0.0) and (budget_used < 0.70)
             votes["lead"] = verdict_correct and (steps < 8)
-            votes["journalist"] = (recall > 0.60) and (tools_called >= 3)
+            votes["journalist"] = (recall > 0.60) and (proxy_tools >= 3)
         else:
             votes["legal"] = (recall > 0.75) and (confidence > 0.80) and (hallucinations == 0)
             votes["fast"] = verdict_correct and (recall > 0.0) and (budget_used < 0.50)
             votes["lead"] = verdict_correct and (steps < 5)
-            votes["journalist"] = (recall > 0.85) and (coverage > 0.80) and (tools_called >= 4)
+            votes["journalist"] = (recall > 0.85) and (coverage > 0.80) and (proxy_tools >= 4)
             
         return votes
 

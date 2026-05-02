@@ -18,9 +18,9 @@ async def take_step(req: StepRequest):
     if record["done"]:
         raise HTTPException(status_code=400, detail="Episode is already done. Call /reset")
 
-    env = record["env"]
+    env_obj = record["env"]
     try:
-        obs, reward, terminated, truncated, info = env.step(req.action)
+        obs, reward, terminated, truncated, info = env_obj.step(req.action)
     except AssertionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -39,14 +39,41 @@ async def take_step(req: StepRequest):
         if true_label:
             record["verdict"] = true_label
 
-    # Append to episode trace for task grader
-    from env.misinfo_env import ACTIONS
+    # ── Append to episode trace — use correct action labels per env type ──────
+    use_forge_ma = record.get("use_forge_ma", False)
+    if use_forge_ma:
+        # ForgeEnv: action arg is ignored; Red agent is autonomous.
+        # Record what Red actually did from step info.
+        red_action = info.get(
+            "red_action",
+            f"red_auto_step_{getattr(env_obj, '_steps', '?')}"
+        )
+        action_label = str(red_action)
+    else:
+        from env.misinfo_env import ACTIONS
+        action_label = (
+            ACTIONS[req.action]
+            if req.action < len(ACTIONS)
+            else f"action_{req.action}"
+        )
+
     record.setdefault("episode_trace", []).append({
-        "step": env.steps,
-        "action": ACTIONS[req.action],
+        "step": getattr(env_obj, "_steps", getattr(env_obj, "steps", 0)),
+        "action": action_label,
         "reward": reward,
         "done": done,
     })
+
+    # ── Flatten obs for API — ForgeEnv returns np.ndarray (after Fix 5C) ──────
+    import numpy as np
+    if isinstance(obs, dict):
+        # Stale ForgeEnv import (pre-Fix-5C): flatten manually
+        from agents.ppo_agent import PPOAgent
+        obs_list = PPOAgent._flatten_obs_static(obs, 3859).tolist()
+    elif isinstance(obs, np.ndarray):
+        obs_list = obs.tolist()
+    else:
+        obs_list = list(obs)
 
     if done:
         try:
@@ -56,7 +83,7 @@ async def take_step(req: StepRequest):
             pass  # Never let grading failure break a step response
 
     return StepResponse(
-        observation=obs.tolist(),
+        observation=obs_list,
         reward=round(float(reward), 5),
         done=done,
         info=info,

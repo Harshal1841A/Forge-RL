@@ -187,6 +187,54 @@ class SocietyOfThought:
         self.agent_timeout_sec = agent_timeout_sec
         self._gin_lock = threading.Lock()
 
+    @classmethod
+    def create_default(cls, gin) -> "SocietyOfThought":
+        """
+        Factory: creates a fully wired Society with all 4 agents.
+        Use this instead of manually passing agents to __init__.
+        Called by ForgeEnv._evaluate_episode().
+        """
+        import config
+        from blue_team.narrative_critic import NarrativeCritic
+        from agents.llm_agent_ma import LLMAgent
+
+        auditor_agent = LLMAgent(
+            system_prompt=(
+                "You are a Forensic Auditor specialising in detecting "
+                "fabricated sources, retracted studies, and misattributed "
+                "quotes. Respond ONLY in JSON with keys: verdict "
+                "(real|misinfo|fabricated|satire|unknown), "
+                "predicted_chain (list of primitive names), "
+                "rationale (string), confidence (0.0-1.0)."
+            ),
+            provider=config.AGENT_AUDITOR_PROVIDER,
+            api_key=config.OPENAI_API_KEY_AUDITOR,
+        )
+
+        historian_agent = LLMAgent(
+            system_prompt=(
+                "You are a Context Historian specialising in detecting "
+                "temporal manipulation, misdated media, and provenance "
+                "fraud. Respond ONLY in JSON with keys: verdict "
+                "(real|misinfo|fabricated|satire|unknown), "
+                "predicted_chain (list of primitive names), "
+                "rationale (string), confidence (0.0-1.0)."
+            ),
+            provider=config.AGENT_HISTORIAN_PROVIDER,
+            api_key=config.CEREBRAS_API_KEY,
+        )
+
+        critic_agent = NarrativeCritic()
+
+        return cls(
+            auditor=auditor_agent,
+            historian=historian_agent,
+            critic=critic_agent,
+            graph_specialist=None,   # GIN handled separately
+            gin=gin,
+            agent_timeout_sec=12.0,
+        )
+
     def investigate(self, claim: str, true_chain: List[PrimitiveType] = None,
                     budget: int = 10, claim_graph=None) -> SocietyResult:
         """
@@ -233,19 +281,113 @@ class SocietyOfThought:
         gs_default = {"verdict": "unknown", "predicted_chain": [], "rationale": "Graph specialist error", "confidence": 0.1}
 
         def _run_auditor():
-            if self.auditor is not None and hasattr(self.auditor, "analyze"):
-                return self.auditor.analyze(claim)
+            try:
+                # Clear history to prevent cross-episode context bleed
+                if hasattr(self.auditor, "history"):
+                    self.auditor.history.clear()
+                if self.auditor is not None and hasattr(self.auditor, "query"):
+                    prompt = (
+                        f"Review this claim for fabrication or source issues:\n{claim}"
+                        f"\n\nClaim graph JSON: {claim_graph_json}"
+                    )
+                    resp = self.auditor.query(prompt, gin_feedback=combined_hint)
+                    parsed = self.auditor.parse_json(resp)
+                    from env.primitives import PrimitiveType
+                    raw = parsed.get("predicted_chain", [])
+                    chain = []
+                    for item in raw:
+                        if isinstance(item, PrimitiveType):
+                            chain.append(item)
+                        else:
+                            try:
+                                chain.append(PrimitiveType(str(item).upper()))
+                            except (ValueError, KeyError):
+                                try:
+                                    chain.append(PrimitiveType[str(item).upper()])
+                                except KeyError:
+                                    pass
+                    return {
+                        "verdict": _normalize_verdict(
+                            parsed.get("verdict", "unknown")
+                        ),
+                        "predicted_chain": chain,
+                        "rationale": parsed.get("rationale", "Auditor complete."),
+                        "confidence": float(parsed.get("confidence", 0.5)),
+                    }
+            except Exception as e:
+                import logging
+                logging.getLogger("forge.society").warning(
+                    "Forensic Auditor failed: %s", e
+                )
             return _auditor_analyze(claim, claim_graph_json, gin_feedback=combined_hint)
 
         def _run_historian():
-            if self.historian is not None and hasattr(self.historian, "analyze"):
-                return self.historian.analyze(claim)
+            try:
+                if hasattr(self.historian, "history"):
+                    self.historian.history.clear()
+                if self.historian is not None and hasattr(self.historian, "query"):
+                    resp = self.historian.query(
+                        f"Review this claim for temporal or provenance issues: {claim}",
+                        gin_feedback=combined_hint,
+                    )
+                    parsed = self.historian.parse_json(resp)
+                    from env.primitives import PrimitiveType
+                    raw = parsed.get("predicted_chain", [])
+                    chain = []
+                    for item in raw:
+                        if isinstance(item, PrimitiveType):
+                            chain.append(item)
+                        else:
+                            try:
+                                chain.append(PrimitiveType(str(item).upper()))
+                            except (ValueError, KeyError):
+                                try:
+                                    chain.append(PrimitiveType[str(item).upper()])
+                                except KeyError:
+                                    pass
+                    return {
+                        "verdict": _normalize_verdict(
+                            parsed.get("verdict", "unknown")
+                        ),
+                        "predicted_chain": chain,
+                        "rationale": parsed.get("rationale", "Historian complete."),
+                        "confidence": float(parsed.get("confidence", 0.5)),
+                    }
+            except Exception as e:
+                import logging
+                logging.getLogger("forge.society").warning(
+                    "Context Historian failed: %s", e
+                )
             return _historian_analyze(claim, gin_feedback=combined_hint)
 
         def _run_critic():
             if self.critic is not None and hasattr(self.critic, "analyze"):
-                return self.critic.analyze(claim, claim_graph_json, gin_feedback=combined_hint)
-            return {"verdict": "unknown", "predicted_chain": [], "rationale": "Critic not wired", "confidence": 0.3}
+                try:
+                    return self.critic.analyze(
+                        claim,
+                        claim_graph_json,
+                        gin_feedback=combined_hint,
+                    )
+                except Exception as e:
+                    import logging
+                    logging.getLogger("forge.society").warning(
+                        "NarrativeCritic failed: %s. Using fallback.", e
+                    )
+            # Inline fallback — keyword heuristics for P4 and P8
+            claim_lower = claim.lower()
+            chain = []
+            from env.primitives import PrimitiveType
+            if any(k in claim_lower for k in ['"', "quoted", "said", "according to"]):
+                chain.append(PrimitiveType.QUOTE_FABRICATE)
+            if any(k in claim_lower for k in ["satire", "onion", "parody", "babylon"]):
+                chain.append(PrimitiveType.SATIRE_REFRAME)
+            verdict = "fabricated" if chain else "unknown"
+            return {
+                "verdict": verdict,
+                "predicted_chain": chain,
+                "rationale": "Critic fallback: keyword heuristic.",
+                "confidence": 0.45 if chain else 0.2,
+            }
 
         def _run_graph_specialist():
             return {

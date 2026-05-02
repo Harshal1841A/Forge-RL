@@ -146,27 +146,38 @@ class SelfPlayTrainer:
         seed: int,
     ) -> float:
         """Run a single episode against a fixed graph; return total reward."""
-        env = MisInfoForensicsEnv(difficulty=graph.difficulty)
-        obs, _ = env.reset(seed=seed)
-        # Manually inject the generated graph
-        env.graph = graph
-        env._claim_embedding = env._embed(graph.root.text)
+        from env.forge_env import ForgeEnv
+        env = ForgeEnv()
+        true_chain = []  # You might need to extract true_chain from graph if available
+        obs, _ = env.reset_from_r1(
+            initial_graph=graph,
+            true_chain=true_chain,
+            claim_text=graph.root.text if hasattr(graph, 'root') else "Generated claim",
+            seed=seed
+        )
+        # flatten obs if not already flattened
+        obs = agent._flatten_obs(obs)
 
         total_reward = 0.0
         done = False
         while not done:
             action, _, _ = agent.act(obs)
             obs, reward, terminated, truncated, _ = env.step(action)
+            obs = agent._flatten_obs(obs)
             total_reward += reward
             done = terminated or truncated
         return total_reward
 
     def _run_heuristic_episode(self, graph) -> float:
         """Run heuristic antagonist on same graph."""
-        env = MisInfoForensicsEnv(difficulty=graph.difficulty)
-        obs, _ = env.reset()
-        env.graph = graph
-        env._claim_embedding = env._embed(graph.root.text)
+        from env.forge_env import ForgeEnv
+        env = ForgeEnv()
+        true_chain = []
+        obs, _ = env.reset_from_r1(
+            initial_graph=graph,
+            true_chain=true_chain,
+            claim_text=graph.root.text if hasattr(graph, 'root') else "Generated claim",
+        )
         self.antagonist.reset()
 
         total_reward = 0.0
@@ -178,24 +189,22 @@ class SelfPlayTrainer:
             done = terminated or truncated
         return total_reward
 
-    def _build_env_from_generator(self, gen: GeneratorAgent, difficulty: int) -> MisInfoForensicsEnv:
+    def _build_env_from_generator(self, gen: GeneratorAgent, difficulty: int):
         """Build a fresh env configured to sample from the generator."""
-        env = MisInfoForensicsEnv(difficulty=difficulty)
-        # Monkey-patch task list to use generator's bias
-
-        class _GenTask:
-            task_id = gen.agent_id
-
-            def generate(self, difficulty=1, seed=0):
-                return gen.generate(difficulty=difficulty)
-
-            def oracle_steps(self, g):
-                return 5
-
-            def has_manipulation(self, g):
-                return True
-        env.tasks = [_GenTask()]
-        return env
+        from env.forge_env import ForgeEnv
+        env = ForgeEnv()
+        # Not fully needed if PPOAgent collect_rollout is overriding reset,
+        # but to keep it simple, we wrap ForgeEnv to use gen.generate
+        class _GenEnvWrapper(ForgeEnv):
+            def reset(self, seed=None):
+                g = gen.generate(difficulty=difficulty)
+                return self.reset_from_r1(
+                    initial_graph=g,
+                    true_chain=[],
+                    claim_text=g.root.text if hasattr(g, 'root') else "Generated claim",
+                    seed=seed
+                )
+        return _GenEnvWrapper()
 
     def save_population(self, path: str) -> None:
         import json

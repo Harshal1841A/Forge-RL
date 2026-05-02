@@ -6,28 +6,33 @@ import config
 logger = logging.getLogger(__name__)
 
 # ── Provider registry — all use OpenAI-compatible API ──────────────────────────
-_PROVIDER_CONFIG = {
-    "groq": {
-        "base_url": config.API_BASE_URL,
-        "api_key":  config.OPENAI_API_KEY,
-        "model":    config.MODEL_NAME,
-    },
-    "cerebras": {
-        "base_url": config.CEREBRAS_BASE_URL,
-        "api_key":  config.CEREBRAS_API_KEY,
-        "model":    config.CEREBRAS_MODEL,
-    },
-    "mistral": {
-        "base_url": config.MISTRAL_BASE_URL,
-        "api_key":  config.MISTRAL_API_KEY,
-        "model":    config.MISTRAL_MODEL,
-    },
-    "openrouter": {
-        "base_url": config.OPENROUTER_BASE_URL,
-        "api_key":  config.OPENROUTER_API_KEY,
-        "model":    config.OPENROUTER_MODEL,
-    },
-}
+# NOTE: This is a function (not a dict) so model names are read from config
+# at call-time, not frozen at import time. This allows the .env / config.py
+# defaults to take effect even if config was updated before first use.
+def _get_provider_config(provider: str) -> dict:
+    registry = {
+        "groq": {
+            "base_url": config.API_BASE_URL,
+            "api_key":  config.OPENAI_API_KEY,
+            "model":    config.MODEL_NAME,
+        },
+        "cerebras": {
+            "base_url": config.CEREBRAS_BASE_URL,
+            "api_key":  config.CEREBRAS_API_KEY,
+            "model":    config.CEREBRAS_MODEL,
+        },
+        "mistral": {
+            "base_url": config.MISTRAL_BASE_URL,
+            "api_key":  config.MISTRAL_API_KEY,
+            "model":    config.MISTRAL_MODEL,
+        },
+        "openrouter": {
+            "base_url": config.OPENROUTER_BASE_URL,
+            "api_key":  config.OPENROUTER_API_KEY,
+            "model":    config.OPENROUTER_MODEL,
+        },
+    }
+    return registry.get(provider, registry["groq"])
 
 
 class LLMAgent:
@@ -51,9 +56,9 @@ class LLMAgent:
         self.system_prompt = system_prompt
         self.history = []
 
-        # Resolve provider config
+        # Resolve provider config freshly at init time
         prov = provider or "groq"
-        prov_cfg = _PROVIDER_CONFIG.get(prov, _PROVIDER_CONFIG["groq"])
+        prov_cfg = _get_provider_config(prov)
 
         self.provider    = prov
         self.model_name  = model_name or prov_cfg["model"]
@@ -103,20 +108,29 @@ class LLMAgent:
         if self._client:
             messages = [{"role": "system", "content": self.system_prompt}] + self.history
             try:
-                resp = self._client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    temperature=0.2,
-                    max_tokens=256,
-                    response_format={"type": "json_object"},
-                )
+                # Only Groq and OpenAI reliably support response_format.
+                # Cerebras and OpenRouter may throw BadRequestError on it.
+                _SUPPORTS_JSON_MODE = {"groq", "openai"}
+                kwargs = {
+                    "model":       self.model_name,
+                    "messages":    messages,
+                    "temperature": 0.2,
+                    "max_tokens":  256,
+                }
+                if self.provider in _SUPPORTS_JSON_MODE:
+                    kwargs["response_format"] = {"type": "json_object"}
+
+                resp = self._client.chat.completions.create(**kwargs)
                 response = resp.choices[0].message.content
                 self.history.append({"role": "assistant", "content": response})
                 logger.debug(f"[{self.provider}] response: {response[:120]}")
                 return response
             except Exception as e:
                 logger.warning(
-                    f"[LLMAgent] {self.provider} call failed ({e}). Using mock fallback."
+                    "[LLMAgent/%s] API call failed (%s: %s). "
+                    "Falling back to deterministic mock. "
+                    "Check API key, rate limits, and model availability.",
+                    self.provider, type(e).__name__, e
                 )
 
         # ── Deterministic mock fallback ───────────────────────────────────────

@@ -62,7 +62,7 @@ def create_app() -> FastAPI:
             "OpenEnv-compatible API for the FORGE misinformation investigation "
             "reinforcement learning environment. All APIs are 100% free to use."
         ),
-        version="1.0.0",
+        version="2.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
@@ -97,7 +97,7 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "env": "forge",
-            "version": "1.0.0",
+            "version": "2.0.0",
             "openenv_compliant": True,
             "tasks": 9,
             "action_space": 13,
@@ -300,6 +300,16 @@ def create_app() -> FastAPI:
             )
         ep_out = record.get("episode_output")
         claim_text = record.get("claim_text", "")
+        if not claim_text:
+            env_obj = record.get("env")
+            if env_obj and hasattr(env_obj, "_claim_text"):
+                claim_text = env_obj._claim_text
+            elif env_obj and hasattr(env_obj, "graph"):
+                graph = env_obj.graph
+                if graph and hasattr(graph, "root"):
+                    claim_text = getattr(graph.root, "text", "")
+                elif graph and hasattr(graph, "root_claim"):
+                    claim_text = getattr(graph.root_claim, "text", "")
         if ep_out is None:
             return JSONResponse(
                 status_code=202,

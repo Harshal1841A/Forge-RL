@@ -148,7 +148,19 @@ class RedAgent:
                 self.history.append((x.detach().cpu(), edge_index.detach().cpu(), ti, pi))
                 return action
 
-        return None  # No valid action found (shouldn't happen unless K_MAX=4 hit)
+        import logging
+        logger = logging.getLogger("forge.red")
+        logger.debug(
+            "[RedAgent] No valid action found in top candidates. "
+            "K_MAX constraint hit or primitive overlap. "
+            "Falling back to random valid action."
+        )
+        fallback = self._random_valid_action()
+        if fallback:
+            return fallback
+
+        logger.warning("[RedAgent] _random_valid_action also failed! Returning None.")
+        return None
 
     def commit_action(self, action: RedAction):
         """
