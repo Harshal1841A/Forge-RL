@@ -493,7 +493,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     ];
 
     let step = 0;
-    if (window._demoInterval) clearInterval(window._demoInterval as number);
+    if (window._demoInterval != null) clearInterval(window._demoInterval);
 
     const interval = setInterval(() => {
       if (step >= demoSequence.length) {
@@ -634,7 +634,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
         ];
 
       let step = 0;
-      if (window._demoInterval) clearInterval(window._demoInterval as number);
+      if (window._demoInterval != null) clearInterval(window._demoInterval);
 
       const interval = setInterval(() => {
         if (step >= investigateSequence.length) {
