@@ -1,17 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import dynamic from "next/dynamic";
-
-const CustomCursor = dynamic(
-  () => import("@/components/ui/CustomCursor").then(m => ({ default: m.CustomCursor })),
-  { ssr: false }
-);
-
-const AnimatedBackground = dynamic(
-  () => import("@/components/ui/AnimatedBackground").then(m => ({ default: m.AnimatedBackground })),
-  { ssr: false }
-);
+import { ClientLayoutEffects } from "@/components/ui/ClientLayoutEffects";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,8 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased cursor-none`} suppressHydrationWarning>
-        <AnimatedBackground />
-        <CustomCursor />
+        <ClientLayoutEffects />
         {children}
       </body>
     </html>
