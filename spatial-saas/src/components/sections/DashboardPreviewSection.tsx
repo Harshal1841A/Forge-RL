@@ -46,7 +46,7 @@ export function DashboardPreviewSection() {
   const {
     serverOnline, tasks, actions, selectedTaskName, depth,
     status, logs, observation, totalReward, done, grade, launching, error,
-    leaderboard, summary, gnnNodeImportance: _gnnNodeImportance,
+    leaderboard, summary,
     init, setSelectedTask, setDepth, launch, takeAction, reset, runDemoMode,
   } = useForgeStore();
 
