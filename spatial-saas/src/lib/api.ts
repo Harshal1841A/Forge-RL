@@ -4,7 +4,9 @@
  */
 
 const baseFromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
-const BASE = baseFromEnv ? baseFromEnv.replace(/\/+$/, "") : "";
+const BASE = baseFromEnv
+  ? baseFromEnv.replace(/\/+$/, "")
+  : "http://localhost:7860";   // FastAPI default port
 
 function apiUrl(path: string): string {
   return BASE ? `${BASE}${path}` : path;
@@ -230,7 +232,7 @@ export const forge = {
 
   state: (episode_id?: string) =>
     apiFetch<StateResponse>(
-      `/state${episode_id ? `?episode_id=${episode_id}` : ""}`
+      `/state${episode_id ? `?episode_id=${episode_id}` : ''}`
     ),
 
   grade: (episode_id: string) =>

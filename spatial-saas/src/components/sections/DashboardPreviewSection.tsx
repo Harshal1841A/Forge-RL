@@ -27,8 +27,16 @@ const ACTION_TEXT: Record<string, string> = {
   submit_verdict_real: "text-emerald-400", submit_verdict_misinfo: "text-red-400",
 };
 
-// Quick investigation sequence: indices into the actions array
-const AUTO_SEQUENCE = [0, 2, 3, 4, 5, 7, 9];
+// Quick investigation sequence: canonical tool names
+const AUTO_SEQUENCE_NAMES = [
+  "query_source",
+  "cross_reference",
+  "network_cluster",
+  "temporal_audit",
+  "entity_link",
+  "flag_manipulation",
+  "submit_verdict_misinfo",
+];
 
 export function DashboardPreviewSection() {
   const containerRef = useRef<HTMLElement>(null);
@@ -68,11 +76,30 @@ export function DashboardPreviewSection() {
   // Auto-run investigation sequence after launch
   useEffect(() => {
     if (status !== "ACTIVE" || done || actions.length === 0) return;
-    const safeSeq = AUTO_SEQUENCE.filter((idx) => idx < actions.length);
+    
     const stepsCompleted = logs.length - 1; // subtract init log
-    if (stepsCompleted >= safeSeq.length) return;
+    if (stepsCompleted >= AUTO_SEQUENCE_NAMES.length) return;
+    if (stepsCompleted >= logs.length - 1) return; // Keep it in sync with logs
+
     const timer = setTimeout(() => {
-      takeAction(safeSeq[stepsCompleted]);
+      const actionName = AUTO_SEQUENCE_NAMES[stepsCompleted];
+      if (!actionName) return;
+
+      // Find action by name — robust to backend reordering
+      const actionIdx = actions.findIndex(
+        (a) =>
+          (a as { id?: string; name?: string }).id === actionName ||
+          (a as { id?: string; name?: string }).name === actionName ||
+          String(a) === actionName
+      );
+
+      if (actionIdx >= 0) {
+        takeAction(actionIdx);
+      } else {
+        // Fallback: use position if name not found
+        const fallbackIdx = stepsCompleted % Math.max(actions.length, 1);
+        takeAction(fallbackIdx);
+      }
     }, 1400);
     return () => clearTimeout(timer);
   }, [status, logs.length, done, actions, takeAction]);
