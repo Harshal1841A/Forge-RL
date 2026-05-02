@@ -16,9 +16,9 @@ COPY . /app/
 
 # Build frontend — try both directory names
 RUN if [ -d "spatial-saas" ]; then \
-        npm --prefix spatial-saas ci && npm --prefix spatial-saas run build; \
+        npm --prefix spatial-saas install --legacy-peer-deps && npm --prefix spatial-saas run build; \
     elif [ -d "spatial_saas" ]; then \
-        npm --prefix spatial_saas ci && npm --prefix spatial_saas run build; \
+        npm --prefix spatial_saas install --legacy-peer-deps && npm --prefix spatial_saas run build; \
     fi
 
 RUN pip install --no-cache-dir -e . 2>/dev/null || true
