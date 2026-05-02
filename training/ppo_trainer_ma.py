@@ -76,10 +76,6 @@ class REINFORCETrainer:
     def __init__(
         self,
         env_config: Optional[ForgeEnvConfig] = None,
-        # Bumped from 4 → 50 per generation. The previous defaults yielded only
-        # 12 total training episodes (4 × 3) which is far below the minimum
-        # viable training volume for the GIN. New defaults total ≥ 500
-        # episodes, in line with the review's P7 minimum bar.
         n_episodes_per_generation: int = 50,
         max_generations: int = 10,
         use_trl: bool = False,
@@ -89,8 +85,9 @@ class REINFORCETrainer:
         self.env = ForgeEnv(env_config or ForgeEnvConfig(budget=10, seed=42))
         self.n_episodes = n_episodes_per_generation
         self.max_generations = max_generations
-        self.use_trl = use_trl
-        self.model = model
+        from red_team.hae_model import HAEModel
+        self.use_trl = True
+        self.model = self.env.red_agent.hae
         self.tokenizer = tokenizer
         self.stats = TrainingStats()
 
