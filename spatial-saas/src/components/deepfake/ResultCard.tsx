@@ -43,7 +43,7 @@ function AnalysisBar({
 
 export function ResultCard({ result, previewUrl, onReset }: ResultCardProps) {
   const isReal = result.verdict === "REAL";
-  const verdictColor = isReal ? "emerald" : "rose";
+  const _verdictColor = isReal ? "emerald" : "rose";
   const accent = isReal ? "#34d399" : "#fb7185";
   const Icon = isReal ? ShieldCheck : ShieldAlert;
   const confidencePct = Math.round(result.confidence * 100);

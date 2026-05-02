@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Shield, Terminal, Zap, Cpu, WifiOff, X } from "lucide-react";
+import { Activity, Shield, Terminal, Zap, Cpu, WifiOff } from "lucide-react";
 import { useForgeStore } from "@/store/forgeStore";
 import { MultiAgentActivityPanel } from "@/components/ui/MultiAgentActivityPanel";
 import LiveClaimInput from "@/components/sections/LiveClaimInput";
@@ -46,7 +46,7 @@ export function DashboardPreviewSection() {
   const {
     serverOnline, tasks, actions, selectedTaskName, depth,
     status, logs, observation, totalReward, done, grade, launching, error,
-    leaderboard, summary, gnnNodeImportance,
+    leaderboard, summary, gnnNodeImportance: _gnnNodeImportance,
     init, setSelectedTask, setDepth, launch, takeAction, reset, runDemoMode,
   } = useForgeStore();
 

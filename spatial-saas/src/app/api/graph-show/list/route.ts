@@ -3,7 +3,7 @@ import path from "path";
 
 import { NextResponse } from "next/server";
 
-const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+const _ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
 export async function GET() {
   const root = process.cwd();

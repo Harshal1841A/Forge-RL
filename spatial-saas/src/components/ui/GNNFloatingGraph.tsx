@@ -33,7 +33,7 @@ function riskLabel(v: number) {
   return "LOW RISK";
 }
 
-function riskNote(v: number) {
+function _riskNote(v: number) {
   if (v > 0.8) return "High-confidence propagation node. Likely coordinated amplification.";
   if (v > 0.5) return "Moderate influence detected. Cross-reference recommended.";
   return "Low-risk source. Credible domain or fact-checking site.";

@@ -351,7 +351,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
 
   // ── launch: POST /reset → start new episode ───────────────────────────────
   launch: async () => {
-    const { selectedTaskName, agentId } = get();
+    const { selectedTaskName, agentId: _agentId } = get();
     _logCounter = 0;
     set({ launching: true, error: null, logs: [], grade: null, done: false, totalReward: 0, observation: null, status: "ACTIVE" });
     try {
