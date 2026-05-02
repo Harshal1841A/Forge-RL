@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { CustomCursor } from "@/components/ui/CustomCursor";
-import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
+import dynamic from "next/dynamic";
+
+const CustomCursor = dynamic(
+  () => import("@/components/ui/CustomCursor").then(m => ({ default: m.CustomCursor })),
+  { ssr: false }
+);
+
+const AnimatedBackground = dynamic(
+  () => import("@/components/ui/AnimatedBackground").then(m => ({ default: m.AnimatedBackground })),
+  { ssr: false }
+);
 
 const inter = Inter({ subsets: ["latin"] });
 
