@@ -8,6 +8,26 @@ from server.state import EPISODE_STORE
 router = APIRouter()
 
 
+def _sanitize(obj):
+    """Recursively convert torch.Tensor / np.ndarray to JSON-safe Python types."""
+    import numpy as np
+    try:
+        import torch
+        if isinstance(obj, torch.Tensor):
+            return obj.detach().cpu().tolist()
+    except ImportError:
+        pass
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.generic):          # np.float32 etc.
+        return obj.item()
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
 @router.post("/step", response_model=StepResponse)
 async def take_step(req: StepRequest):
     eid = req.episode_id or EPISODE_STORE.get("latest_id")
@@ -86,5 +106,5 @@ async def take_step(req: StepRequest):
         observation=obs_list,
         reward=round(float(reward), 5),
         done=done,
-        info=info,
+        info=_sanitize(info),   # ← THE FIX: sanitize before returning
     )
