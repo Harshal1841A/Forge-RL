@@ -351,7 +351,7 @@ def create_app() -> FastAPI:
                 SELECT 
                     agent_id,
                     COUNT(*) as runs,
-                    ROUND(AVG(CAST(correct AS FLOAT)) * 100, 1) as accuracy_pct,
+                    ROUND(AVG(CAST(correct AS FLOAT)), 4) as accuracy_pct,
                     ROUND(AVG(total_reward), 3) as mean_reward,
                     ROUND(AVG(composite), 3) as mean_composite
                 FROM grades
