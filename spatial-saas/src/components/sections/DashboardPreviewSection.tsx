@@ -42,6 +42,11 @@ export function DashboardPreviewSection() {
   const containerRef = useRef<HTMLElement>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isGnnModalOpen, setIsGnnModalOpen] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const TOTAL_STEPS = AUTO_SEQUENCE_NAMES.length; // 7
+  const MS_PER_STEP = 1400;
+  const ESTIMATED_TOTAL_MS = TOTAL_STEPS * MS_PER_STEP;
 
   const {
     serverOnline, tasks, actions, selectedTaskName, depth,
@@ -103,6 +108,22 @@ export function DashboardPreviewSection() {
     return () => clearTimeout(timer);
   }, [status, logs.length, done, actions, takeAction]);
 
+  // Start/stop timer based on status
+  useEffect(() => {
+    if (status === "ACTIVE" && !done) {
+      const now = Date.now();
+      setStartTime(now);
+      setElapsedMs(0);
+      const interval = setInterval(() => {
+        setElapsedMs(Date.now() - now);
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    if (done || status === "IDLE") {
+      setStartTime(null);
+    }
+  }, [status, done]);
+
 
   const isRunning = status === "ACTIVE" || launching;
   const isDone = status === "OPTIMAL" || status === "ERROR" || done;
@@ -138,6 +159,16 @@ export function DashboardPreviewSection() {
       { id: "sec_fraud", label: "SEC Fraud" },
       { id: "image_forensics", label: "Image Forensics" },
     ];
+
+  const remainingMs = Math.max(0, ESTIMATED_TOTAL_MS - elapsedMs);
+  const progressPct = Math.min(100, (elapsedMs / ESTIMATED_TOTAL_MS) * 100);
+  const stepsRemaining = Math.max(0, TOTAL_STEPS - (logs.length - 1));
+
+  function fmtTime(ms: number) {
+    const s = Math.floor(ms / 1000);
+    const tenths = Math.floor((ms % 1000) / 100);
+    return `${s}.${tenths}s`;
+  }
 
   return (
     <section
@@ -260,6 +291,68 @@ export function DashboardPreviewSection() {
                   {status}
                 </motion.div>
               </div>
+
+              {/* Analysis Timer Bar */}
+              {(isRunning || isDone) && (
+                <div className="px-8 py-3 border-b border-white/5 bg-black/10">
+                  <div className="flex items-center gap-6">
+                    {/* Progress track */}
+                    <div className="flex-1 relative h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                      <motion.div
+                        className={`h-full rounded-full ${isDone ? "bg-emerald-400" : "bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500"}`}
+                        animate={{ width: isDone ? "100%" : `${progressPct}%` }}
+                        transition={{ ease: "linear", duration: 0.1 }}
+                      />
+                      {/* Shimmer on active */}
+                      {isRunning && (
+                        <motion.div
+                          className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                          animate={{ x: ["-100%", "800%"] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                        />
+                      )}
+                    </div>
+
+                    {/* Step counter */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-[10px] font-mono font-bold text-slate-400 tracking-widest">STEP</span>
+                      <span className="text-[10px] font-mono font-bold text-white">
+                        {Math.min(logs.length - 1, TOTAL_STEPS)}/{TOTAL_STEPS}
+                      </span>
+                    </div>
+
+                    {/* Time display */}
+                    <div className="flex items-center gap-4 shrink-0">
+                      {isRunning && (
+                        <>
+                          <div className="text-center">
+                            <p className="text-[10px] font-bold text-slate-500 tracking-widest">ELAPSED</p>
+                            <p className="text-xs font-mono font-bold text-cyan-400 tabular-nums">{fmtTime(elapsedMs)}</p>
+                          </div>
+                          <div className="w-px h-6 bg-white/10" />
+                          <div className="text-center">
+                            <p className="text-[10px] font-bold text-slate-500 tracking-widest">ETA</p>
+                            <p className="text-xs font-mono font-bold text-purple-400 tabular-nums">{fmtTime(remainingMs)}</p>
+                          </div>
+                          <div className="w-px h-6 bg-white/10" />
+                          <div className="text-center">
+                            <p className="text-[10px] font-bold text-slate-500 tracking-widest">STEPS LEFT</p>
+                            <p className="text-xs font-mono font-bold text-amber-400 tabular-nums">{stepsRemaining}</p>
+                          </div>
+                        </>
+                      )}
+                      {isDone && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-emerald-400 tracking-widest">✓ COMPLETE</span>
+                          <span className="text-xs font-mono font-bold text-emerald-400 tabular-nums">
+                            {startTime ? fmtTime(Date.now() - startTime) : fmtTime(elapsedMs)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Core Metrics & Status */}
               <div className="p-8 flex flex-col lg:flex-row gap-8 items-center justify-between">
