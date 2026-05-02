@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { Image as ImageIcon, ScanFace } from "lucide-react";
+import { Image as ImageIcon, ScanFace, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useForgeStore } from "@/store/forgeStore";
 
@@ -29,12 +29,7 @@ export function Navbar() {
       <div className="container mx-auto px-6 max-w-7xl flex items-center justify-between">
         <div className="flex items-center gap-2.5 cursor-pointer group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center shadow-[0_0_12px_rgba(0,255,255,0.4)] group-hover:shadow-[0_0_18px_rgba(0,255,255,0.6)] transition-all">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" className="w-5 h-5">
-              <path d="M2 5h10a7 7 0 1 1-7 7" />
-              <path d="M2 9h10a3 3 0 1 1-3 3" />
-              <path d="M2 13h5" />
-              <path d="M2 17h10" />
-            </svg>
+            <Shield className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-lg tracking-tight select-none text-white">
             FORGE-RL

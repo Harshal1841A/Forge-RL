@@ -79,7 +79,6 @@ export function DashboardPreviewSection() {
     
     const stepsCompleted = logs.length - 1; // subtract init log
     if (stepsCompleted >= AUTO_SEQUENCE_NAMES.length) return;
-    if (stepsCompleted >= logs.length - 1) return; // Keep it in sync with logs
 
     const timer = setTimeout(() => {
       const actionName = AUTO_SEQUENCE_NAMES[stepsCompleted];
