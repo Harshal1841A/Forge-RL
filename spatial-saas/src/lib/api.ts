@@ -6,7 +6,7 @@
 const baseFromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
 const BASE = baseFromEnv
   ? baseFromEnv.replace(/\/+$/, "")
-  : "http://localhost:7860";   // FastAPI default port
+  : "";   // Empty string uses Next.js rewrites in next.config.mjs
 
 function apiUrl(path: string): string {
   return BASE ? `${BASE}${path}` : path;
