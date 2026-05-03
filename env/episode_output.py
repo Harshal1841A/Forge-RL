@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from env.primitives import PrimitiveType
-from rewards.hierarchical_reward import RewardBreakdown
+from rewards.reward_types import RewardBreakdown
 
 
 def _prim_list(chain: List[PrimitiveType]) -> List[str]:

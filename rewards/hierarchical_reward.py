@@ -1,30 +1,23 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import List
-from env.primitives import PrimitiveType
+from typing import TYPE_CHECKING, List
+from rewards.reward_types import BudgetBreakdown, RewardBreakdown
 from rewards.tactic_edit_dist import tactic_edit_distance
+
+if TYPE_CHECKING:
+    from env.primitives import PrimitiveType
 
 # ── R1/R2 expert constants (imported by ExpertReviewerAgent and forge_env) ──
 EXPERT_APPROVE_BONUS: float =  0.15
 EXPERT_REJECT_BONUS:  float = -0.10
 
 
-@dataclass
-class BudgetBreakdown:
-    step_penalty: float
-    over_budget_hit: bool
-    total: float
-
-
-@dataclass
-class RewardBreakdown:
-    ted_component:     float
-    f1_component:      float
-    plausibility_delta: float
-    consensus_bonus:   float
-    expert_bonus:      float
-    budget:            BudgetBreakdown
-    total:             float
+# RewardBreakdown and BudgetBreakdown are imported from rewards.reward_types
+# (kept here for backward-compat re-export so existing code still works)
+__all__ = [
+    "compute_reward", "RewardBreakdown", "BudgetBreakdown",
+    "EXPERT_APPROVE_BONUS", "EXPERT_REJECT_BONUS",
+    "_compute_plausibility_delta", "_chain_entropy_bonus",
+]
 
 
 def _compute_plausibility_delta(
@@ -63,8 +56,8 @@ def _chain_entropy_bonus(chains: list, mean_ted: float) -> float:
 
 def compute_reward(
     *,
-    predicted_chains: List[List[PrimitiveType]],
-    true_chain: List[PrimitiveType],
+    predicted_chains: List[list],
+    true_chain: List,
     claim_text_before: str,
     claim_text_after: str,
     consensus_level,
@@ -74,7 +67,7 @@ def compute_reward(
     useful_tools_called: int,
     claim_graph_before=None,
     claim_graph_after=None,
-) -> RewardBreakdown:
+) -> "RewardBreakdown":
 
     # ── TED component ───────────────────────────────────────────────────
     best_ted = 1.0
