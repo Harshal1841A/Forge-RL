@@ -58,6 +58,7 @@ async def reset_env(req: Optional[ResetRequest] = None):
         if use_forge_ma:
             from env.forge_env import ForgeEnv, ForgeEnvConfig
             env = ForgeEnv(ForgeEnvConfig(budget=10, seed=seed))
+            env._task_name = req.task_name or "coordinated_campaign"
             obs, info = env.reset(seed=seed)
 
             # ForgeEnv.reset() now returns np.ndarray after FIX 5C,
