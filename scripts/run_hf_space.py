@@ -1,4 +1,4 @@
-import os, signal, subprocess, sys, threading, time
+import os, signal, subprocess, sys, threading, time, urllib.request
 from pathlib import Path
 
 
@@ -18,10 +18,10 @@ def terminate_process(proc):
         proc.kill()
 
 
-def start_process(cmd):
+def start_process(cmd, env=None):
     return subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, bufsize=1,
+        text=True, bufsize=1, env=env,
     )
 
 
@@ -32,10 +32,25 @@ def find_frontend_dir():
     return "spatial-saas"
 
 
+def wait_for_backend(port: str, timeout: int = 90) -> bool:
+    """Poll http://127.0.0.1:{port}/health until it responds or timeout."""
+    url = f"http://127.0.0.1:{port}/health"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as r:
+                if r.status == 200:
+                    print(f"[supervisor] Backend healthy at {url}", flush=True)
+                    return True
+        except Exception:
+            pass
+        time.sleep(2)
+    print(f"[supervisor] Backend did NOT become healthy within {timeout}s", flush=True)
+    return False
+
+
 def main():
-    # Hugging Face Spaces exposes a single public port; serve Next.js on that port.
     frontend_port = os.getenv("FRONTEND_PORT", "7860")
-    # Keep FastAPI internal and let Next.js rewrites proxy API paths to it.
     backend_port  = os.getenv("BACKEND_PORT",  "8000")
     host          = os.getenv("HOST", "0.0.0.0")
     npm_bin       = "npm.cmd" if os.name == "nt" else "npm"
@@ -48,6 +63,7 @@ def main():
         "--host", host,
         "--port", backend_port,
         "--workers", "1",
+        "--timeout-keep-alive", "120",
     ]
     frontend_cmd = [
         npm_bin, "--prefix", frontend_dir,
@@ -55,10 +71,21 @@ def main():
         "-H", host, "-p", frontend_port,
     ]
 
-    backend_proc  = start_process(backend_cmd)
-    frontend_proc = start_process(frontend_cmd)
-
+    # ── Start backend first ────────────────────────────────────────────────────
+    print("[supervisor] Starting backend...", flush=True)
+    backend_proc = start_process(backend_cmd)
     threading.Thread(target=stream_output, args=(backend_proc, "backend"), daemon=True).start()
+
+    # Wait for backend to be healthy before starting frontend
+    # This prevents the frontend from serving "BACKEND OFFLINE" on first load.
+    healthy = wait_for_backend(backend_port, timeout=90)
+    if not healthy:
+        # Backend failed; still start frontend so the page loads (will show offline)
+        print("[supervisor] Starting frontend despite unhealthy backend...", flush=True)
+    else:
+        print("[supervisor] Backend ready. Starting frontend...", flush=True)
+
+    frontend_proc = start_process(frontend_cmd)
     threading.Thread(target=stream_output, args=(frontend_proc, "frontend"), daemon=True).start()
 
     stop_requested = False
@@ -83,9 +110,11 @@ def main():
             if restart_count < max_restarts:
                 restart_count += 1
                 print(f"[supervisor] Backend crashed — restart {restart_count}/{max_restarts}", flush=True)
-                time.sleep(2)
+                time.sleep(3)
                 backend_proc = start_process(backend_cmd)
                 threading.Thread(target=stream_output, args=(backend_proc, "backend"), daemon=True).start()
+                # Wait for it to come back healthy before logging success
+                wait_for_backend(backend_port, timeout=60)
             else:
                 print("[supervisor] Max backend restarts reached. Stopping.", flush=True)
                 stop_requested = True
