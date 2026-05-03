@@ -122,9 +122,21 @@ export function DashboardPreviewSection() {
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [status, done, logs.length]);
-
-
+  }, [status, done, logs.length]);  // Start/stop timer based on status
+  useEffect(() => {
+    if (status === "ACTIVE" && !done) {
+      const now = Date.now();
+      setStartTime(now);
+      setElapsedMs(0);
+      const interval = setInterval(() => {
+        setElapsedMs(Date.now() - now);
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    if (done || status === "IDLE") {
+      setStartTime(null);
+    }
+  }, [status, done]);
 
   const isRunning = status === "ACTIVE" || launching;
   const isDone = status === "OPTIMAL" || status === "ERROR" || done;
