@@ -380,14 +380,28 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     const { episodeId, actions, done, selectedTaskName } = get();
     if (!episodeId || done) return;
 
-    const actionName = actions[actionIndex]?.name ?? `action_${actionIndex}`;
+    // ForgeEnv tasks use an autonomous Red Agent — the UI action index is just
+    // a trigger. The actual primitive chosen is returned in info.red_action.
+    const FORGE_MA_TASKS = [
+      "fabricated_stats", "out_of_context", "coordinated_campaign",
+      "politifact_liar", "satire_news", "plandemic",
+      "sec_fraud", "verified_fact", "image_forensics",
+    ];
+    const isForgeMATask = FORGE_MA_TASKS.includes(selectedTaskName);
+    const fallbackActionName = actions[actionIndex]?.name ?? `action_${actionIndex}`;
+
     try {
       const stepRes = await forge.step({ action: actionIndex, episode_id: episodeId });
+
+      // For ForgeEnv tasks, surface what Red actually did so the live feed is truthful.
+      const resolvedActionName = isForgeMATask
+        ? String((stepRes.info as Record<string, unknown>).red_action ?? fallbackActionName)
+        : fallbackActionName;
 
       const stateRes = await forge.state(episodeId);
       const obs = stateRes.typed_observation;
 
-      const log = makeLog(actionName, stepRes.reward, obs, selectedTaskName);
+      const log = makeLog(resolvedActionName, stepRes.reward, obs ?? undefined, selectedTaskName);
       set((s) => ({
         logs: [...s.logs, log],
         observation: obs,
@@ -397,6 +411,7 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       }));
 
       if (stepRes.done) {
+        // Fetch real grade from backend — never fake it
         await get().fetchGrade();
       }
     } catch (e) {
@@ -503,9 +518,9 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
           status: "OPTIMAL",
           done: true,
           grade: {
-            episode_id: state.episodeId || "",
-            verdict: "misinformation",
-            true_label: "misinformation",
+            episode_id: state.episodeId || "demo-episode",
+            verdict: "misinfo",
+            true_label: "misinfo",
             correct: true,
             accuracy: 0.97,
             manipulation_detected: true,
@@ -576,13 +591,13 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
         SOURCE_LAUNDER: "fabricated",
         QUOTE_FABRICATE: "fabricated",
         CITATION_FORGE: "fabricated",
-        TEMPORAL_SHIFT: "misinformation",
-        ENTITY_SUBSTITUTE: "misinformation",
-        NETWORK_AMPLIFY: "misinformation",
+        TEMPORAL_SHIFT: "misinfo",
+        ENTITY_SUBSTITUTE: "misinfo",
+        NETWORK_AMPLIFY: "misinfo",
       };
       const derivedVerdict = trueChain.length === 0
         ? "real"
-        : (PRIM_TO_VERDICT[trueChain[0]] ?? "misinformation");
+        : (PRIM_TO_VERDICT[trueChain[0]] ?? "misinfo");
       const isReal = derivedVerdict === "real";
       const verdictLabel = derivedVerdict.toUpperCase().replace(/_/g, " ");
       const trueChainStr = trueChain.length > 0 ? trueChain.join(", ") : "none (no manipulation detected)";

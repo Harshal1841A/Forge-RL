@@ -389,7 +389,7 @@ export function DashboardPreviewSection() {
                       <motion.div key="grade" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-start gap-1">
                         <p className={`font-bold text-sm ${grade.correct ? "text-emerald-400" : "text-red-400"}`}>
                           {grade.correct
-                            ? (grade.verdict === "misinformation" || grade.verdict === "fabricated" ? "✓ FAKE NEWS DETECTED" : "✓ REAL NEWS VERIFIED")
+                            ? (grade.verdict === "misinfo" || grade.verdict === "misinformation" || grade.verdict === "fabricated" ? "✓ FAKE NEWS DETECTED" : "✓ REAL NEWS VERIFIED")
                             : "✗ INCORRECT PREDICTION"}
                         </p>
                         <p className="text-slate-300 text-xs font-semibold drop-shadow-sm">Verdict: <span className="text-white font-bold">{grade.verdict ?? "—"}</span></p>
