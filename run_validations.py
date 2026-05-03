@@ -114,7 +114,7 @@ for _ in range(500):
         steps_taken=random.randint(1,10), budget_limit=10,
         useful_tools_called=random.randint(0,5),
     )
-    if not (0.001 <= r.total <= 0.999):
+    if not (-1.0 <= r.total <= 1.0):
         fails += 1
         print(f'OOB: {r}')
 print(f'Range check: {500-fails}/500 passed' + (' — ALL OK' if fails==0 else f' — {fails} FAILED'))

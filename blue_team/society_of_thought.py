@@ -483,14 +483,19 @@ class SocietyOfThought:
             idx = verdicts.index(top_v)
             return ConsensusResult(top_v, chains[idx], "majority_3", 0.05, dissenting_agents, dissenting_rationales)
         elif top_count == 2:
-            return ConsensusResult("trigger_expert", gs_chain, "split_2_2", -0.05, dissenting_agents, dissenting_rationales)
+            # FIX R2: return graph_specialist verdict, not the unmappable
+            # internal string "trigger_expert" which breaks verdict_correct checks.
+            gs_verdict = results[gs_idx].get("verdict", "unknown") if results else "unknown"
+            return ConsensusResult(gs_verdict, gs_chain, "split_2_2", -0.05, dissenting_agents, dissenting_rationales)
         else:
             return ConsensusResult("unknown", gs_chain, "all_different", -0.05, names, [r.get("rationale", "") for r in results])
 
     def compute_ted_best(self, results: list, true_chain: list) -> float:
-        """max(TED_auditor, TED_historian, TED_graph_specialist, TED_narrative_critic)"""
+        """min(TED_auditor, TED_historian, TED_graph_specialist, TED_critic)
+        FIX R7: was max(teds) — lower TED = better prediction, so best = min.
+        """
         teds = [tactic_edit_distance(res.get("predicted_chain", []), true_chain) for res in results]
-        return max(teds) if teds else 0.001
+        return min(teds) if teds else 0.001
 
 
 def _make_dummy_graph():

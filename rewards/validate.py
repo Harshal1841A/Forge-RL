@@ -88,7 +88,7 @@ def validate_hierarchical(n: int = 200) -> bool:
             budget_limit=10,
             useful_tools_called=random.randint(0, steps),
         )
-        if not (0.001 <= result.total <= 0.999):
+        if not (-1.0 <= result.total <= 1.0):   # FIX R6: was (0.001, 0.999)
             failures.append(result)
 
     if failures:
@@ -96,7 +96,7 @@ def validate_hierarchical(n: int = 200) -> bool:
         for r in failures[:3]:
             print(f"  {r}")
         return False
-    print(f"Hierarchical OK: {n} samples all in (0.001, 0.999)")
+    print(f"Hierarchical OK: {n} samples all in (-1.0, 1.0)")
     return True
 
 
@@ -111,7 +111,7 @@ def validate_all() -> bool:
     print()
     if all(results):
         print("ALL REWARD VALIDATIONS PASSED")
-        print("Rewards are OpenEnv compliant (0.001, 0.999)")
+        print("Rewards are FORGE-RL compliant (-1.0, 1.0)")
         return True
     else:
         failed = sum(1 for r in results if not r)

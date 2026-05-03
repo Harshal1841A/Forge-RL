@@ -468,7 +468,13 @@ class ForgeEnv:
                 claim_graph=current_graph
             )
             _society_result = society_result
-            society_verdict = society_result.agent_verdicts.get("gin", "unknown")
+            # FIX R1: use graph_specialist verdict (GIN output), not the
+            # non-existent "gin" key.  Fall back to consensus verdict.
+            society_verdict = (
+                society_result.agent_verdicts.get("graph_specialist")
+                or getattr(society_result, "verdict", None)
+                or "unknown"
+            )
         except Exception as _soe:
             import logging as _log
             _log.getLogger("forge.env").warning(
@@ -478,15 +484,27 @@ class ForgeEnv:
             class _StubResult:
                 predicted_chain = []
                 consensus_level = "all_different"
-                agent_confidences = {"gin": 0.5}
-                agent_verdicts = {"gin": "unknown"}
+                verdict = "unknown"
+                agent_confidences = {"graph_specialist": 0.5, "auditor": 0.5}
+                agent_verdicts = {"graph_specialist": "unknown", "auditor": "unknown"}
                 agent_chains = {}
             _society_result = _StubResult()
             society_result = _society_result
 
         predicted_chain = society_result.predicted_chain
         consensus_level = society_result.consensus_level
-        gin_confidence = society_result.agent_confidences.get("gin", 0.5)
+        # FIX R1: use graph_specialist confidence, fall back to auditor then 0.5
+        gin_confidence = society_result.agent_confidences.get(
+            "graph_specialist",
+            society_result.agent_confidences.get("auditor", 0.5),
+        )
+        # FIX R2: strip internal/unmappable verdict strings before they
+        # propagate to EpisodeOutput, verdict_correct logic, and the frontend.
+        _INTERNAL_VERDICTS = {"trigger_expert", "unknown", ""}
+        if society_verdict in _INTERNAL_VERDICTS:
+            society_verdict = getattr(society_result, "verdict", "unknown") or "unknown"
+        if society_verdict in _INTERNAL_VERDICTS:
+            society_verdict = "unknown"
         gin_result = {"verdict": society_verdict}
 
         predicted_chains_ensemble = []
