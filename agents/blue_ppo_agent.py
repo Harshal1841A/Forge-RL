@@ -1,3 +1,5 @@
+# NOTE: This is the BLUE-team PPO policy. The RED-team uses REINFORCETrainer
+# in ppo_trainer_ma.py which trains HAEModel via REINFORCE, NOT this class.
 """
 PPOAgent — Proximal Policy Optimisation with:
   - GAE (Generalised Advantage Estimation)
@@ -13,7 +15,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import deque
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import torch
@@ -22,7 +24,7 @@ import torch.nn.functional as F   # moved to top — was erroneously imported at
 import torch.optim as optim
 
 from agents.gnn_policy import build_policy
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 import config
 
 logger = logging.getLogger(__name__)
@@ -180,8 +182,8 @@ class PPOAgent:
 
     def collect_rollout(self, env: Any) -> Dict[str, float]:
         """Collect one full buffer of experience."""
-        if type(env).__name__ == "MisInfoForensicsEnv":
-            logger.warning("Using deprecated R1 MisInfoForensicsEnv. Please migrate to ForgeEnv (R2).")
+        if type(env).__name__ == "ForgeEnv":
+            logger.warning("Using deprecated R1 ForgeEnv. Please migrate to ForgeEnv (R2).")
 
         obs, _ = env.reset()
         obs = self._flatten_obs(obs)

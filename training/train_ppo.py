@@ -14,8 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config
-from agents.ppo_agent import PPOAgent
-from env.misinfo_env import MisInfoForensicsEnv
+from agents.blue_ppo_agent import PPOAgent
+from env.forge_env import ForgeEnv, ForgeEnvConfig
 from training.curriculum import CurriculumManager
 from training.eval import evaluate_agent
 
@@ -29,11 +29,9 @@ def train(args: argparse.Namespace) -> None:
     logger.info("=" * 60)
 
     curriculum = CurriculumManager()
-    env = MisInfoForensicsEnv(
-        difficulty=curriculum.difficulty,
-        budget_multiplier=curriculum.budget_multiplier,
-    )
-    obs_dim = env.observation_space.shape[0]
+    _budget = max(5, int(10 * curriculum.budget_multiplier))
+    env = ForgeEnv(ForgeEnvConfig(budget=_budget, seed=args.seed))
+    obs_dim = 3859  # ForgeEnv always returns np.zeros(3859) obs
 
     agent = PPOAgent(obs_dim=obs_dim, use_gnn=False, lr=config.PPO_LR, device=args.device)
 
@@ -49,8 +47,10 @@ def train(args: argparse.Namespace) -> None:
     for iteration in range(1, args.iterations + 1):
         # ── Update env difficulty from curriculum ──────────────────────────────
         curr_status = curriculum.status()
-        env.difficulty = curriculum.difficulty
-        env.budget_multiplier = curriculum.budget_multiplier
+        new_budget = max(5, int(10 * curriculum.budget_multiplier))
+        if new_budget != env.config.budget:
+            env = ForgeEnv(ForgeEnvConfig(budget=new_budget, seed=args.seed))
+            logger.info("[Curriculum] env rebuilt budget=%d", new_budget)
 
         # ── Collect rollout ────────────────────────────────────────────────────
         rollout_stats = agent.collect_rollout(env)
@@ -114,6 +114,7 @@ def main():
     parser.add_argument("--checkpoint-dir", type=str,   default="checkpoints/ppo")
     parser.add_argument("--resume",         type=str,   default="")
     parser.add_argument("--device",         type=str,   default="cpu")
+    parser.add_argument("--seed",         type=int,   default=0)
     args = parser.parse_args()
     train(args)
 

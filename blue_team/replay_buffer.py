@@ -17,14 +17,14 @@ generations" — this file makes that story real.
 
 Usage:
     buf = ReplayBuffer(capacity=1000, min_reward_threshold=0.35)
-    buf.add(episode_output)          # auto-rejects below threshold
-    batch = buf.sample(n=16)         # random mini-batch
+    buf.add(episode_output, x=..., edge_index=...)  # optional graph tensors
+    batch = buf.sample(n=16)         # random mini-batch of ReplayEntry
     print(buf.size, buf.threshold)   # monitor growth
 """
 from __future__ import annotations
 import random
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 
 from env.episode_output import EpisodeOutput
 
@@ -35,6 +35,8 @@ class ReplayEntry:
     episode: EpisodeOutput
     generation: int         # PPO generation at which this was produced
     replay_count: int = 0   # how many times this entry has been sampled
+    x: object = None        # torch.Tensor or None
+    edge_index: object = None  # torch.Tensor or None
 
 
 class ReplayBuffer:
@@ -103,7 +105,12 @@ class ReplayBuffer:
         self.min_reward_threshold = self._threshold
         self._generation = gen
 
-    def add(self, episode: EpisodeOutput) -> bool:
+    def add(
+        self,
+        episode: EpisodeOutput,
+        x=None,
+        edge_index=None,
+    ) -> bool:
         """
         Attempt to add an episode to the buffer.
 
@@ -115,7 +122,12 @@ class ReplayBuffer:
 
         if accepted:
             self._rolling_accepted += 1
-            entry = ReplayEntry(episode=episode, generation=self._generation)
+            entry = ReplayEntry(
+                episode=episode,
+                generation=self._generation,
+                x=x,
+                edge_index=edge_index,
+            )
             self._entries.append(entry)
 
             # Evict oldest if over capacity
@@ -128,12 +140,12 @@ class ReplayBuffer:
 
         return accepted
 
-    def sample(self, n: int = 16) -> List[EpisodeOutput]:
+    def sample(self, n: int = 16) -> List[ReplayEntry]:
         """
-        Sample n episodes without replacement when the buffer is large enough.
+        Sample n entries without replacement when the buffer is large enough.
         Falls back to sampling with replacement only when n > len(buffer),
         in which case duplicates are expected and intentional.
-        Returns list of EpisodeOutput objects.
+        Returns list of ReplayEntry objects (use .episode for EpisodeOutput).
         Increments replay_count on sampled entries.
 
         LOW BUG 2 FIX: previously used random.choices (always with replacement)
@@ -152,7 +164,7 @@ class ReplayBuffer:
 
         for entry in sampled:
             entry.replay_count += 1
-        return [e.episode for e in sampled]
+        return sampled
 
     def best_n(self, n: int = 5) -> List[EpisodeOutput]:
         """Return top-n episodes by reward_total (for curriculum warm-up)."""

@@ -6,13 +6,13 @@ from pathlib import Path
 # Add root to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
+from env.forge_env import ForgeEnv, ACTIONS
 from blue_team.society_of_thought import SocietyOfThought
 
 def run_demo():
     print("--- Starting FORGE-MA Demo Investigation ---")
     # Use live tools to verify the real APIs we just checked
-    env = MisInfoForensicsEnv(use_live_tools=True)
+    env = ForgeEnv(use_live_tools=True)
     obs, info = env.reset()
     
     # Correct way to get root info from the environment

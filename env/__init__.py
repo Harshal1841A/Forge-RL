@@ -1,9 +1,9 @@
 """FORGE environment: Gymnasium-compatible misinformation investigation environment."""
 from env.claim_graph import ClaimGraph, ClaimNode, EvidenceEdge, TacticType, RelationType
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 
 __all__ = [
-    "MisInfoForensicsEnv",
+    "ForgeEnv",
     "ClaimGraph", "ClaimNode", "EvidenceEdge",
     "TacticType", "RelationType",
 ]

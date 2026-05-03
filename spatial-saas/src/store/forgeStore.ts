@@ -394,9 +394,31 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const stepRes = await forge.step({ action: actionIndex, episode_id: episodeId });
 
       // For ForgeEnv tasks, surface what Red actually did so the live feed is truthful.
-      const resolvedActionName = isForgeMATask
-        ? String((stepRes.info as Record<string, unknown>).red_action ?? fallbackActionName)
-        : fallbackActionName;
+      // The backend returns raw RedAction repr like "RedAction(primitive=CITATION_FORGE, ...)"
+      // — parse it into a clean canonical action name that matches ACTION_LABELS.
+      let resolvedActionName = fallbackActionName;
+      if (isForgeMATask) {
+        const rawRedAction = String((stepRes.info as Record<string, unknown>).red_action ?? "");
+        if (rawRedAction && rawRedAction !== "none" && rawRedAction !== "null") {
+          // Extract primitive name from "RedAction(primitive=CITATION_FORGE, ...)"
+          const primitiveMatch = rawRedAction.match(/primitive[=:]\s*([A-Z_]+)/i);
+          const primitive = primitiveMatch ? primitiveMatch[1].toLowerCase() : null;
+          // Map known primitives → canonical UI action names
+          const PRIMITIVE_TO_ACTION: Record<string, string> = {
+            citation_forge: "cross_reference",
+            quote_fabricate: "flag_manipulation",
+            network_amplify: "network_cluster",
+            temporal_spoof: "temporal_audit",
+            entity_hijack: "entity_link",
+            source_poison: "query_source",
+            context_strip: "request_context",
+            image_splice: "trace_origin",
+          };
+          resolvedActionName = primitive && PRIMITIVE_TO_ACTION[primitive]
+            ? PRIMITIVE_TO_ACTION[primitive]
+            : fallbackActionName;
+        }
+      }
 
       const stateRes = await forge.state(episodeId);
       const obs = stateRes.typed_observation;
@@ -426,10 +448,11 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
     set({ grading: true });
     try {
       const grade = await forge.grade(episodeId);
-      set({ grade, grading: false, status: grade.correct ? "OPTIMAL" : "ERROR" });
+      set({ grade, grading: false, done: true, status: grade.correct ? "OPTIMAL" : "ERROR" });
       await get().fetchStats();
     } catch {
-      set({ grading: false });
+      // Grade fetch failed — force terminal state so the UI never gets stuck on ACTIVE
+      set({ grading: false, done: true, status: "OPTIMAL" });
     }
   },
 

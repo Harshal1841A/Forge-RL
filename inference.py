@@ -12,9 +12,9 @@ logging.basicConfig(level=logging.WARNING)
 
 def run_episode(task_name: str = None, agent_id: str = "openenv_eval",
                 max_steps: int = 10) -> dict:
-    from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
+    from env.forge_env import ForgeEnv, ACTIONS
     try:
-        env = MisInfoForensicsEnv(
+        env = ForgeEnv(
             task_names=[task_name] if task_name else None,
         )
         obs, info = env.reset(seed=42)

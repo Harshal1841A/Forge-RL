@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from env.misinfo_env import MisInfoForensicsEnv, ACTIONS
+from env.forge_env import ForgeEnv, ACTIONS
 from server.schemas import ResetRequest, ResetResponse, StateResponse, Observation, Action, Reward
 from server.state import EPISODE_STORE
 
@@ -45,7 +45,7 @@ async def reset_env(req: Optional[ResetRequest] = None):
     try:
         # ── Decide which env to use ───────────────────────────────────────────
         # Use ForgeEnv for FORGE-MA adversarial tasks (or when task_name is
-        # unspecified — default behaviour). Fall back to MisInfoForensicsEnv
+        # unspecified — default behaviour). Fall back to ForgeEnv
         # only when a task name is given that is NOT in the FORGE-MA set.
         use_forge_ma = (
             req.task_name is None                     # default: use ForgeEnv
@@ -64,7 +64,7 @@ async def reset_env(req: Optional[ResetRequest] = None):
             # but guard against the old dict form in case of stale imports.
             import numpy as np
             if isinstance(obs, dict):
-                from agents.ppo_agent import PPOAgent
+                from agents.blue_ppo_agent import PPOAgent
                 obs_arr = PPOAgent._flatten_obs_static(obs, 3859)
                 obs_list = obs_arr.tolist()
                 claim_text = obs.get("claim_text", "")
@@ -73,7 +73,7 @@ async def reset_env(req: Optional[ResetRequest] = None):
                 claim_text = info.get("claim_text", "")
         else:
             task_names = [req.task_name]
-            env = MisInfoForensicsEnv(
+            env = ForgeEnv(
                 task_names=task_names,
                 difficulty=req.difficulty,
                 use_live_tools=req.use_live_tools,
@@ -95,7 +95,7 @@ async def reset_env(req: Optional[ResetRequest] = None):
                     tr.close()
             logger.debug("Evicted episode %s from store (limit=%d)", oldest, MAX_EPISODES)
 
-        # ForgeEnv embeds episode_id in info; MisInfoForensicsEnv also does.
+        # ForgeEnv embeds episode_id in info; ForgeEnv also does.
         # Fall back to a fresh UUID if neither provides one.
         episode_id = info.get("episode_id") or str(uuid.uuid4())[:8]
 
@@ -153,7 +153,10 @@ async def get_state(episode_id: Optional[str] = None):
             claim_text=record.get("claim_text", ""),
             evidence_coverage=round(float(claim_graph.evidence_coverage), 4) if claim_graph and hasattr(claim_graph, "evidence_coverage") else 0.0,
             source_diversity=round(float(claim_graph.source_diversity_entropy), 4) if claim_graph and hasattr(claim_graph, "source_diversity_entropy") else 0.0,
-            contradiction_count=int(claim_graph.contradiction_surface_area) if claim_graph and hasattr(claim_graph, "contradiction_surface_area") else 0,
+            contradiction_count=sum(
+                1 for e in (claim_graph.edges if claim_graph else [])
+                if getattr(e, "relation", "") in ("adversarial", "contradicts")
+            ),
             manipulation_flagged=False,
             budget_remaining=budget_remaining,
             steps_used=budget_used,
@@ -172,7 +175,7 @@ async def get_state(episode_id: Optional[str] = None):
             info=info,
         )
 
-    # ── MisInfoForensicsEnv state (legacy path) ───────────────────────────────
+    # ── ForgeEnv state (legacy path) ───────────────────────────────
     info = env.get_episode_summary()
     if env.graph:
         info["graph_summary"] = env.graph.to_dict()

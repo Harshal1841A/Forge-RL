@@ -22,6 +22,11 @@ from rewards.red_step_reward import RedStepReward
 from red_team.red_agent import RedAgent
 from runtime import get_blue_gin
 
+N_ACTIONS = 13
+ACTIONS = ['query_source', 'trace_origin', 'cross_reference', 'request_context', 'entity_link', 'temporal_audit', 'network_cluster', 'flag_manipulation', 'submit_verdict_real', 'submit_verdict_misinfo', 'submit_verdict_satire', 'submit_verdict_out_of_context', 'submit_verdict_fabricated']
+
+
+
 _DEMO_CLAIMS = [
     ("Vaccines cause autism, leaked documents confirm.", [PrimitiveType.QUOTE_FABRICATE, PrimitiveType.SOURCE_LAUNDER]),
     ("Video shows 2015 protest mislabelled as 2024 riots.", [PrimitiveType.TEMPORAL_SHIFT, PrimitiveType.CONTEXT_STRIP]),
@@ -62,6 +67,34 @@ class ForgeEnv:
         # visible to the deployed server (which used to hold a separate copy).
         self.gin = get_blue_gin()
         self.red_step_rewarder = RedStepReward(self.gin, alpha=1.0)
+        from blue_team.society_of_thought import SocietyOfThought
+        self.society = SocietyOfThought.create_default(gin=self.gin)
+
+        try:
+            import numpy as np
+            import gymnasium as gym
+            self.observation_space = gym.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(3859,),
+                dtype=np.float32,
+            )
+            self.action_space = gym.spaces.Discrete(N_ACTIONS)
+        except ImportError:
+            class _BoxSpace:
+                def __init__(self, shape):
+                    self.shape = shape
+
+                def sample(self):
+                    import numpy as np
+                    return np.zeros(self.shape, dtype=np.float32)
+
+            class _DiscreteSpace:
+                def __init__(self, n):
+                    self.n = n
+
+            self.observation_space = _BoxSpace((3859,))
+            self.action_space = _DiscreteSpace(N_ACTIONS)
 
         # Episode state (reset each episode)
         self._claim_text: str = ""
@@ -226,8 +259,17 @@ class ForgeEnv:
             # GINPredictor takes Data-like object, but RedStepReward takes duck-typed object.
             # We can mock it or just pass dict. RedStepReward expects `predict_chain(graph_data)`
             # and `graph_data` just needs to have x and edge_index or be accepted by GINPredictor.
-            from torch_geometric.data import Data
-            batch_data = Data(x=x_after, edge_index=edge_index_after)
+            try:
+                from torch_geometric.data import Data as _Data
+                batch_data = _Data(x=x_after, edge_index=edge_index_after)
+            except ImportError:
+                class _SimpleBatch:
+                    def __init__(self, x, edge_index):
+                        self.x = x
+                        self.edge_index = edge_index
+                        self.num_nodes = x.size(0)
+
+                batch_data = _SimpleBatch(x_after, edge_index_after)
             
             # Determine index of the primitive if we can
             prim_idx = None
@@ -409,12 +451,7 @@ class ForgeEnv:
         FIX 2: Consensus detection uses a min-diversity guard to prevent
                 unanimous=+0.10 becoming a free bonus after convergence.
         """
-        # 1. Start Blue Team Society of Thought
-        if not hasattr(self, 'society'):
-            # Factory method handles all 4 agents + GIN
-            from blue_team.society_of_thought import SocietyOfThought
-            self.society = SocietyOfThought.create_default(gin=self.gin)
-
+        # 1. Blue Team Society of Thought (initialized in __init__)
         with self._graph_lock:
             current_graph = self._claim_graph
 
@@ -440,7 +477,7 @@ class ForgeEnv:
             # Build a minimal stub so the rest of _evaluate_episode can proceed
             class _StubResult:
                 predicted_chain = []
-                consensus_level = 0.0
+                consensus_level = "all_different"
                 agent_confidences = {"gin": 0.5}
                 agent_verdicts = {"gin": "unknown"}
                 agent_chains = {}
@@ -580,3 +617,4 @@ class ForgeEnv:
     def graph_lock(self):
         with self._graph_lock:
             yield
+

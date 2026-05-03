@@ -85,11 +85,28 @@ class REINFORCETrainer:
         self.env = ForgeEnv(env_config or ForgeEnvConfig(budget=10, seed=42))
         self.n_episodes = n_episodes_per_generation
         self.max_generations = max_generations
-        from red_team.hae_model import HAEModel
-        self.use_trl = True
-        self.model = self.env.red_agent.hae
+        self.use_trl = use_trl
+        self.model = model or self.env.red_agent.hae
         self.tokenizer = tokenizer
         self.stats = TrainingStats()
+
+        import torch as _t
+        import os as _os
+        self._red_optimizer = _t.optim.AdamW(
+            self.model.parameters(), lr=1e-4, weight_decay=1e-5
+        )
+        self._red_ckpt_path = "checkpoints/red_hae/model.pt"
+        if _os.path.exists(self._red_ckpt_path):
+            try:
+                ckpt = _t.load(self._red_ckpt_path, map_location="cpu")
+                self.model.load_state_dict(ckpt["model"])
+                self._red_optimizer.load_state_dict(ckpt["optimizer"])
+                print(f"[Red] Resumed from checkpoint gen={ckpt.get('generation')}")
+            except Exception as _ce:
+                print(f"[Red] Checkpoint load failed ({_ce}), starting fresh.")
+
+        from training.curriculum import CurriculumManager
+        self._curriculum = CurriculumManager()
 
         # Blue Team trainer: GINPredictor + ReplayBuffer
         self._replay_buffer = ReplayBuffer(capacity=1000)
@@ -123,6 +140,9 @@ class REINFORCETrainer:
     # ── Private ─────────────────────────────────────────────────────────────
 
     def _run_generation(self, gen: int):
+        # Propagate generation to env and expert reviewer
+        self.env.training_generation = gen
+
         episodes: List[EpisodeOutput] = []
         rewards: List[float] = []
         batch_history = []
@@ -136,20 +156,41 @@ class REINFORCETrainer:
                 if terminated or truncated:
                     ep_reward = reward
                     ep_out = info.get("episode_output")
-                    if ep_out:
-                        episodes.append(ep_out)
-                        self.stats.update(ep_out, ep_reward)
-                        # Add to replay buffer for offline Blue training
-                        self._replay_buffer.add(ep_out)
-                    if "red_agent_history" in info:
-                        batch_history.append((ep_out, info["red_agent_history"]))
-                    # Collect Blue training snapshot
                     x_blue = info.get("blue_graph_x")
                     ei_blue = info.get("blue_graph_edge_index")
                     tc_blue = info.get("true_chain")
+                    if ep_out:
+                        episodes.append(ep_out)
+                        self.stats.update(ep_out, ep_reward)
+                        self._curriculum.record_episode_reward(ep_reward)
+                        self._replay_buffer.add(
+                            ep_out, x=x_blue, edge_index=ei_blue
+                        )
+                    if "red_agent_history" in info:
+                        batch_history.append((ep_out, info["red_agent_history"]))
                     if x_blue is not None and tc_blue is not None:
                         blue_episodes.append((x_blue, ei_blue, tc_blue))
                     break
+
+        advanced = self._curriculum.check_progression()
+        if advanced:
+            _budget = max(5, int(10 * self._curriculum.budget_multiplier))
+            self.env = ForgeEnv(ForgeEnvConfig(budget=_budget, seed=gen))
+            self.env.training_generation = gen
+            self.model = self.env.red_agent.hae
+            import torch
+            self._red_optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=1e-4, weight_decay=1e-5
+            )
+            self._replay_buffer = ReplayBuffer(capacity=1000)
+            self._gin_trainer = GINTrainer(
+                gin=self.env.gin,
+                replay_buffer=self._replay_buffer,
+            )
+            print(
+                f"[Curriculum] Stage {self._curriculum.current_stage} "
+                f"budget={_budget}"
+            )
 
         # ── Blue Team supervised update ──────────────────────────────────────
         if blue_episodes:
@@ -163,34 +204,30 @@ class REINFORCETrainer:
             )
 
         if self.use_trl and self.model is not None:
+            import os as _os
             import torch
-            from torch.optim import AdamW
-            
+
             try:
-                # Active PyTorch gradient update loop (AdamW optimizer)
-                optimizer = AdamW(self.model.parameters(), lr=1e-4)
-                optimizer.zero_grad()
-                
-                # Calculate adversarial rewards (Red wants to MINIMIZE blue reward, MAXIMIZE step rewards)
                 red_rewards = []
                 for ep_out, history in batch_history:
-                    # If step rewards are missing, just use -blue_reward
-                    r_steps = sum(ep_out.red_step_rewards) if ep_out and hasattr(ep_out, 'red_step_rewards') else 0.0
+                    r_steps = (
+                        sum(ep_out.red_step_rewards)
+                        if ep_out and hasattr(ep_out, "red_step_rewards")
+                        else 0.0
+                    )
                     blue_r = ep_out.reward_total if ep_out else 0.0
                     red_rewards.append(r_steps - blue_r)
-                
+
+                loss_terms = []
                 if red_rewards:
                     mean_red = sum(red_rewards) / len(red_rewards)
                     device = next(self.model.parameters()).device
-                    
-                    # Collect all loss terms first, then stack+sum to keep the
-                    # computational graph intact for backpropagation.
-                    loss_terms = []
 
-                    for (ep_out, history), r_score in zip(batch_history, red_rewards):
+                    for (ep_out, history), r_score in zip(
+                        batch_history, red_rewards
+                    ):
                         advantage = float(r_score - mean_red)
 
-                        # Re-run forward pass to get gradients (REINFORCE policy gradient)
                         for step_data in history:
                             x, edge_index, ti, pi = step_data
                             x = x.to(device)
@@ -202,18 +239,34 @@ class REINFORCETrainer:
 
                             log_a = torch.log_softmax(a_logits, dim=-1)[ti]
                             log_p = torch.log_softmax(p_logits, dim=-1)[pi]
-                            log_prob = log_a + log_p  # still in graph
+                            log_prob = log_a + log_p
 
-                            # REINFORCE: loss = -(log_prob * advantage)
-                            # Red agent maximises adversarial reward → minimises this loss
                             loss_terms.append(-(log_prob * advantage))
 
-                    if loss_terms:
-                        total_loss = torch.stack(loss_terms).sum()
-                        total_loss.backward()
-                        optimizer.step()
+                if self.use_trl and self.model is not None and loss_terms:
+                    total_loss = torch.stack(loss_terms).sum()
+                    self._red_optimizer.zero_grad()
+                    total_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=0.5
+                    )
+                    self._red_optimizer.step()
+
+                    _os.makedirs(
+                        _os.path.dirname(self._red_ckpt_path), exist_ok=True
+                    )
+                    torch.save(
+                        {
+                            "model": self.model.state_dict(),
+                            "optimizer": self._red_optimizer.state_dict(),
+                            "generation": gen,
+                        },
+                        self._red_ckpt_path,
+                    )
+                    print(
+                        f"[Red] gen={gen} loss={total_loss.item():.4f} ckpt saved."
+                    )
             except Exception as e:
-                import traceback
                 print(f"PPO Optimization exception: {e}")
 
         # ── Auto-write graphify forensic artifacts after every generation ─────

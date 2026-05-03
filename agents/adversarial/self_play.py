@@ -16,9 +16,9 @@ import random
 from typing import List, Tuple  # noqa: F401 – Optional removed (unused)
 
 from agents.adversarial.generator_agent import GeneratorAgent, ALL_TACTICS
-from agents.ppo_agent import PPOAgent
+from agents.blue_ppo_agent import PPOAgent
 from agents.heuristic_agent import HeuristicAgent
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 import config
 
 logger = logging.getLogger(__name__)

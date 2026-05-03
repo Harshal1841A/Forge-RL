@@ -8,24 +8,27 @@ from server.state import EPISODE_STORE
 router = APIRouter()
 
 
-def _sanitize(obj):
-    """Recursively convert torch.Tensor / np.ndarray to JSON-safe Python types."""
-    import numpy as np
-    try:
-        import torch
-        if isinstance(obj, torch.Tensor):
-            return obj.detach().cpu().tolist()
-    except ImportError:
-        pass
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, np.generic):          # np.float32 etc.
-        return obj.item()
-    if isinstance(obj, dict):
-        return {k: _sanitize(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_sanitize(v) for v in obj]
-    return obj
+import torch
+import numpy as np
+
+def _sanitize_info(d: dict) -> dict:
+    """Strip non-JSON-serializable objects from info dict before response."""
+    clean = {}
+    for k, v in d.items():
+        if isinstance(v, (torch.Tensor, np.ndarray)):
+            clean[k] = f"<tensor shape={list(v.shape)}>"
+        elif isinstance(v, list) and v and isinstance(v[0], torch.Tensor):
+            clean[k] = f"<tensor_list len={len(v)}>"
+        elif isinstance(v, dict):
+            clean[k] = _sanitize_info(v)
+        else:
+            try:
+                import json
+                json.dumps(v)
+                clean[k] = v
+            except (TypeError, ValueError):
+                clean[k] = str(v)
+    return clean
 
 
 @router.post("/step", response_model=StepResponse)
@@ -70,7 +73,7 @@ async def take_step(req: StepRequest):
         )
         action_label = str(red_action)
     else:
-        from env.misinfo_env import ACTIONS
+        from env.forge_env import ACTIONS
         action_label = (
             ACTIONS[req.action]
             if req.action < len(ACTIONS)
@@ -88,7 +91,7 @@ async def take_step(req: StepRequest):
     import numpy as np
     if isinstance(obs, dict):
         # Stale ForgeEnv import (pre-Fix-5C): flatten manually
-        from agents.ppo_agent import PPOAgent
+        from agents.blue_ppo_agent import PPOAgent
         obs_list = PPOAgent._flatten_obs_static(obs, 3859).tolist()
     elif isinstance(obs, np.ndarray):
         obs_list = obs.tolist()
@@ -106,5 +109,5 @@ async def take_step(req: StepRequest):
         observation=obs_list,
         reward=round(float(reward), 5),
         done=done,
-        info=_sanitize(info),   # ← THE FIX: sanitize before returning
+        info=_sanitize_info(info),   # ← THE FIX: sanitize before returning
     )

@@ -6,7 +6,7 @@
 const baseFromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
 const BASE = baseFromEnv
   ? baseFromEnv.replace(/\/+$/, "")
-  : "";   // Empty string uses Next.js rewrites in next.config.mjs
+  : "http://localhost:7860"; // Default for FORGE-MA Forensic Platform
 
 function apiUrl(path: string): string {
   return BASE ? `${BASE}${path}` : path;
@@ -148,6 +148,8 @@ export interface LeaderboardEntry {
   accuracy: number;
   mean_reward: number;
   episodes_played: number;
+  rank?: number;
+  badge?: string;
 }
 
 export interface LeaderboardResponse {

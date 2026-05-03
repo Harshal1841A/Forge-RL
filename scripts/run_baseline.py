@@ -26,7 +26,7 @@ def run_heuristic_agent(env, obs):
         "cross_reference", "entity_link"
     ]
 
-    from env.misinfo_env import ACTIONS
+    from env.forge_env import ACTIONS
     action_name_to_idx = {a: i for i, a in enumerate(ACTIONS)}
 
     last_obs, last_rew, last_term, last_trunc, last_info = obs, 0, False, False, {}
@@ -59,7 +59,7 @@ def run_llm_agent(env, obs):
     No training — just prompted inference.
     Falls back gracefully if SoT is unavailable.
     """
-    from env.misinfo_env import ACTIONS
+    from env.forge_env import ACTIONS
     action_name_to_idx = {a: i for i, a in enumerate(ACTIONS)}
 
     try:
@@ -110,8 +110,8 @@ def compute_episode_ted(info: dict) -> float:
 
 
 def run_episodes(agent_fn, n_episodes=50, label="v0"):
-    from env.misinfo_env import MisInfoForensicsEnv
-    env = MisInfoForensicsEnv()
+    from env.forge_env import ForgeEnv
+    env = ForgeEnv()
     teds = []
     verdicts_correct = []
     errors = 0

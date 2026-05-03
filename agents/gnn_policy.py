@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-from env.misinfo_env import N_ACTIONS
+from env.forge_env import N_ACTIONS
 import config
 
 logger = logging.getLogger(__name__)

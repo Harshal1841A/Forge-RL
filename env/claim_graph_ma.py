@@ -59,17 +59,38 @@ class ClaimGraph:
         return entropy
 
     @property
-    def contradiction_surface_area(self) -> int:
-        return sum(
-            1 for e in self.edges
-            if getattr(e, "relation", "") in {"contradicts", "debunks", "refutes"}
-        )
+    def contradiction_surface_area(self) -> float:
+        """Ratio of edges with 'adversarial' or 'contradicts' relation."""
+        if not self.edges:
+            return 0.0
+        contra = sum(1 for e in self.edges
+                     if getattr(e, 'relation', '') in ('adversarial', 'contradicts'))
+        return contra / len(self.edges)
 
     @property
     def network_diameter(self) -> int:
-        if not self.edges:
+        """Approximate graph diameter using BFS from root."""
+        if not self.nodes or len(self.nodes) == 1:
             return 1
-        return min(len(self.edges), 10)
+        # adjacency list
+        adj = {n.id: [] for n in self.nodes}
+        for e in self.edges:
+            adj.get(e.source_id, []).append(e.target_id)
+            adj.get(e.target_id, []).append(e.source_id)
+        # BFS from each node; return max eccentricity
+        max_dist = 1
+        node_ids = [n.id for n in self.nodes]
+        for start in node_ids:
+            dist = {start: 0}
+            queue = [start]
+            while queue:
+                cur = queue.pop(0)
+                for nb in adj.get(cur, []):
+                    if nb not in dist:
+                        dist[nb] = dist[cur] + 1
+                        queue.append(nb)
+            max_dist = max(max_dist, max(dist.values(), default=1))
+        return max_dist
 
     @property
     def true_label(self) -> str:

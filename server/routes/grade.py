@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from server.schemas import GradeResponse
 from server.state import EPISODE_STORE
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 import sqlite3
 
 VERDICT_NORMALISE = {
@@ -77,6 +77,31 @@ def init_db():
 def auto_grade_episode(episode_id: str, record: dict) -> None:
     """Auto-grade a completed episode. Called by step route on done=True."""
     try:
+        # ForgeEnv episodes: grade is computed from episode_output, not graph
+        if record.get("use_forge_ma"):
+            env = record.get("env")
+            ep_out = getattr(env, "episode_output", None)
+            if ep_out is None:
+                return
+            try:
+                agent_id = record.get("agent_id", "anonymous")
+                correct  = ep_out.is_correct
+                total_rew = float(ep_out.reward_total)
+                comp = round(max(0.001, min(0.999, total_rew)), 4)
+                with get_db() as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO grades "
+                        "(episode_id, agent_id, correct, total_reward, composite) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (episode_id, agent_id, correct, total_rew, comp)
+                    )
+                    conn.commit()
+            except Exception as e:
+                import logging
+                logging.getLogger("forge.grade").warning(
+                    "auto_grade ForgeEnv %s failed: %s", episode_id, e
+                )
+            return   # ← skip MisInfoEnv logic below
         env = record.get("env")
         if env is None:
             return
@@ -188,7 +213,73 @@ async def get_grade(episode_id: str):
             detail="Episode not yet complete. Continue stepping until terminated/truncated."
         )
 
-    env: MisInfoForensicsEnv = record["env"]
+    # ── ForgeEnv grade path ───────────────────────────────────────────────
+    if record.get("use_forge_ma"):
+        env = record["env"]
+        ep_out = getattr(env, "episode_output", None)
+        if ep_out is None:
+            raise HTTPException(
+                status_code=400,
+                detail="ForgeEnv episode_output not set. Episode may not have terminated cleanly."
+            )
+
+        verdict    = getattr(ep_out, "verdict", "unknown")
+        true_chain = list(ep_out.true_chain)
+        true_label = true_chain[0] if true_chain else "real"
+        correct    = ep_out.is_correct
+        total_rew  = float(ep_out.reward_total)
+        steps      = ep_out.steps_taken
+        pred_set   = set(ep_out.predicted_chain)
+        true_set   = set(ep_out.true_chain)
+        coverage   = (
+            len(pred_set & true_set) / len(true_set)
+            if true_set else 1.0
+        )
+
+        base   = _clip_open_interval(0.999 if correct else 0.001)
+        eff_b  = round(float(ep_out.budget_total), 4)
+        cov_b  = round(float(ep_out.f1_component) * 0.1, 4)
+        exp_b  = round(float(ep_out.expert_bonus), 4)
+        comp   = _clip_open_interval(total_rew)
+        ted_g  = _clip_open_interval(float(ep_out.ted_component))
+
+        grade_breakdown = {
+            "base_correctness":       base,
+            "efficiency_bonus":       eff_b,
+            "coverage_bonus":         cov_b,
+            "manipulation_bonus":     exp_b,
+            "false_positive_penalty": 0.0,
+            "composite_score":        comp,
+            "task_grader_score":      ted_g,
+            "combined_score":         _clip_open_interval(0.6 * comp + 0.4 * ted_g),
+        }
+
+        agent_id = record.get("agent_id", "anonymous")
+        with get_db() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO grades "
+                "(episode_id, agent_id, correct, total_reward, composite) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (episode_id, agent_id, correct, total_rew, comp)
+            )
+            conn.commit()
+
+        return GradeResponse(
+            episode_id=episode_id,
+            verdict=verdict,
+            true_label=true_label,
+            correct=correct,
+            accuracy=base,
+            manipulation_detected=(ep_out.expert_decision == "APPROVE"),
+            evidence_coverage=round(float(coverage), 4),
+            steps_used=steps,
+            efficiency_score=_clip_open_interval(eff_b + 0.5),
+            total_reward=_clip_open_interval(total_rew),
+            grade_breakdown=grade_breakdown,
+        )
+
+    # ── MisInfoForensicsEnv path (existing code continues here) ──────────
+    env = record["env"]  # type: ignore
     graph = env.graph
     task = env.current_task
 

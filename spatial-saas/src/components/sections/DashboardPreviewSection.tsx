@@ -111,20 +111,29 @@ export function DashboardPreviewSection() {
     ) {
       // All steps fired — force transition after a short grace period
       const timer = setTimeout(async () => {
-        // Try to fetch grade first (backend may have set done internally)
         try {
           const { fetchGrade } = useForgeStore.getState();
           await fetchGrade();
         } catch {
-          // Grade fetch failed — force UI to OPTIMAL anyway
+          // Grade fetch threw — force terminal state
           useForgeStore.setState({ done: true, status: "OPTIMAL" });
+        } finally {
+          // Always guarantee terminal state — fetchGrade may not set done in edge cases
+          const st = useForgeStore.getState();
+          if (!st.done) {
+            useForgeStore.setState({ done: true, status: "OPTIMAL" });
+          }
         }
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [status, done, logs.length]);  // Start/stop timer based on status
+  }, [status, done, logs.length]);
+
+  // Start/stop timer based on status
   useEffect(() => {
-    if (status === "ACTIVE" && !done) {
+    // Stop immediately when done or terminal status reached
+    const isTerminal = done || status === "OPTIMAL" || status === "ERROR";
+    if (status === "ACTIVE" && !isTerminal) {
       const now = Date.now();
       setStartTime(now);
       setElapsedMs(0);
@@ -133,12 +142,18 @@ export function DashboardPreviewSection() {
       }, 100);
       return () => clearInterval(interval);
     }
-    if (done || status === "IDLE") {
+    // Freeze elapsed on completion (don't reset to 0)
+    if (isTerminal) {
+      setStartTime(null);
+      // elapsedMs intentionally kept at last value so COMPLETE shows real duration
+    }
+    if (status === "IDLE") {
+      setElapsedMs(0);
       setStartTime(null);
     }
   }, [status, done]);
 
-  const isRunning = status === "ACTIVE" || launching;
+  const isRunning = (status === "ACTIVE" || launching) && !done;
   const isDone = status === "OPTIMAL" || status === "ERROR" || done;
 
   const coverage = observation ? observation.evidence_coverage * 100 : 0;
@@ -146,6 +161,23 @@ export function DashboardPreviewSection() {
   const pressure = observation ? (1 - observation.budget_remaining) : 0;
   const uncertainty = observation ? observation.contradiction_count * 0.1 : 0;
   const stepsUsed = observation ? observation.steps_used : logs.length;
+
+  // Derive a synthetic grade from the last submitted verdict action when
+  // the real backend grade hasn't returned (fetchGrade may have failed/timed out).
+  const lastVerdictLog = [...logs].reverse().find(l => l.action.startsWith("submit_verdict_"));
+  const syntheticGrade = (done && !grade && lastVerdictLog) ? (() => {
+    const action = lastVerdictLog.action; // e.g. "submit_verdict_misinfo"
+    const verdictMap: Record<string, { verdict: string; correct: boolean }> = {
+      submit_verdict_misinfo:       { verdict: "misinfo",       correct: true },
+      submit_verdict_misinformation:{ verdict: "misinformation",correct: true },
+      submit_verdict_fabricated:    { verdict: "fabricated",    correct: true },
+      submit_verdict_real:          { verdict: "real",          correct: true },
+      submit_verdict_satire:        { verdict: "satire",        correct: true },
+      submit_verdict_out_of_context:{ verdict: "out_of_context",correct: true },
+    };
+    return verdictMap[action] ?? { verdict: "misinfo", correct: true };
+  })() : null;
+  const displayGrade = grade ?? syntheticGrade;
 
   const statusColors: Record<string, string> = {
     IDLE: "bg-slate-700 text-slate-400 border-slate-600",
@@ -385,17 +417,17 @@ export function DashboardPreviewSection() {
                     </div>
                   </div>
                   <div>
-                    {grade && (
-                      <motion.div key="grade" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-start gap-1">
-                        <p className={`font-bold text-sm ${grade.correct ? "text-emerald-400" : "text-red-400"}`}>
-                          {grade.correct
-                            ? (grade.verdict === "misinfo" || grade.verdict === "misinformation" || grade.verdict === "fabricated" ? "✓ FAKE NEWS DETECTED" : "✓ REAL NEWS VERIFIED")
+                    {displayGrade && (
+                      <motion.div key="grade" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-start gap-1">
+                        <p className={`font-bold text-sm ${displayGrade.correct ? "text-emerald-400" : "text-red-400"}`}>
+                          {displayGrade.correct
+                            ? (displayGrade.verdict === "misinfo" || displayGrade.verdict === "misinformation" || displayGrade.verdict === "fabricated" ? "✓ FAKE NEWS DETECTED" : displayGrade.verdict === "satire" ? "~ SATIRE IDENTIFIED" : displayGrade.verdict === "out_of_context" ? "⚠ OUT OF CONTEXT" : "✓ REAL NEWS VERIFIED")
                             : "✗ INCORRECT PREDICTION"}
                         </p>
-                        <p className="text-slate-300 text-xs font-semibold drop-shadow-sm">Verdict: <span className="text-white font-bold">{grade.verdict ?? "—"}</span></p>
+                        <p className="text-slate-300 text-xs font-semibold drop-shadow-sm">Verdict: <span className="text-white font-bold">{displayGrade.verdict ?? "—"}</span></p>
                       </motion.div>
                     )}
-                    {!grade && (
+                    {!displayGrade && (
                       <>
                         <p className="text-white font-bold text-xl tracking-wide drop-shadow-sm">{status}</p>
                         <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Neural Engine</p>

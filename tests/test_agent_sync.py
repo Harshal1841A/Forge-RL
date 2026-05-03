@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from blue_team.society_of_thought import SocietyOfThought
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 
 
 class DummyAgent:
@@ -28,14 +28,14 @@ class DummyGin:
 
 
 def test_parse_observation_length_guard():
-    env = MisInfoForensicsEnv(task_names=["fabricated_stats"], difficulty=1)
+    env = ForgeEnv(task_names=["fabricated_stats"], difficulty=1)
     obs, _ = env.reset()
     with pytest.raises(ValueError):
-        MisInfoForensicsEnv.parse_observation(obs[:-1])
+        ForgeEnv.parse_observation(obs[:-1])
 
 
 def test_graph_lock_context_manager():
-    env = MisInfoForensicsEnv(task_names=["fabricated_stats"], difficulty=1)
+    env = ForgeEnv(task_names=["fabricated_stats"], difficulty=1)
     with env.graph_lock():
         assert env.has_graph() in (True, False)
 

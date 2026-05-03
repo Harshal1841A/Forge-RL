@@ -1,4 +1,4 @@
-﻿"""
+"""
 conftest.py for FORGE-MA tests (tests/forge_ma/).
 Adds the merged project root to sys.path so all forge_ma modules resolve correctly.
 """

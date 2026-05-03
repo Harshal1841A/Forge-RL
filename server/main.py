@@ -30,7 +30,7 @@ from pydantic import BaseModel  # noqa: E402
 
 import config  # noqa: E402
 from server.state import EPISODE_STORE  # noqa: E402
-from env.misinfo_env import ACTIONS  # noqa: E402
+from env.forge_env import ACTIONS  # noqa: E402
 
 logging.basicConfig(level=config.LOG_LEVEL, format=config.LOG_FORMAT)
 logger = logging.getLogger("forge.server")
@@ -381,12 +381,12 @@ def create_app() -> FastAPI:
                 "Trainee"
             )
             entries.append({
-                "rank":       i,
-                "agent_id":   row["agent_id"],
-                "accuracy":   acc,
-                "mean_reward": reward,
-                "runs":       row["runs"],
-                "badge":      badge,
+                "rank":            i,
+                "agent_id":        row["agent_id"],
+                "accuracy":        acc,
+                "mean_reward":     reward,
+                "episodes_played": row["runs"],   # was: "runs": row["runs"]
+                "badge":           badge,
             })
 
         return {
@@ -404,10 +404,10 @@ def create_app() -> FastAPI:
     # doesn't block the uvicorn worker for 30+ seconds.
     try:
         from sentence_transformers import SentenceTransformer
-        from env.misinfo_env import MisInfoForensicsEnv
-        if not hasattr(MisInfoForensicsEnv, '_shared_embedder') or \
-           MisInfoForensicsEnv._shared_embedder is None:
-            MisInfoForensicsEnv._shared_embedder = SentenceTransformer(
+        from env.forge_env import ForgeEnv
+        if not hasattr(ForgeEnv, '_shared_embedder') or \
+           ForgeEnv._shared_embedder is None:
+            ForgeEnv._shared_embedder = SentenceTransformer(
                 config.HF_EMBEDDING_MODEL
             )
             logger.info("Sentence-transformer pre-warmed successfully.")

@@ -142,31 +142,20 @@ class GINTrainer:
         # ── 2. Offline training from ReplayBuffer ─────────────────────────────
         offline_losses = []
         if self.replay_buffer.size >= self.offline_batch_size:
-            sampled = self.replay_buffer.sample(n=self.offline_batch_size)
-            for ep_out in sampled:
-                # EpisodeOutput stores true_chain as tuple of primitive *values*
+            sampled_entries = self.replay_buffer.sample(n=self.offline_batch_size)
+            for entry in sampled_entries:
+                ep_out = entry.episode
                 try:
                     true_chain = [PrimitiveType(v) for v in ep_out.true_chain]
                 except (ValueError, KeyError):
-                    continue  # skip malformed entries
-
-                # Replay buffer only has EpisodeOutput, not raw tensors.
-                # Reconstruct a minimal graph for training based on what GIN
-                # originally saw: a single root node with zero features.
-                # The signal is still valid: the labels come from the true chain.
-                n_nodes = max(1, ep_out.steps_taken)
-                from env.node_features import build_node_features
-                from env.claim_graph_ma import ClaimNode
-                dummy_node = ClaimNode(id="dummy", text="", domain="replay", trust_score=0.5, is_retrieved=False, injected=False, primitive=None, fingerprints={})
-                feat = build_node_features(dummy_node, 10)
-                x_replay = torch.tensor([feat for _ in range(n_nodes)], dtype=torch.float32)
-                edge_index_replay = torch.zeros((2, 0), dtype=torch.long)
-
+                    continue
+                if entry.x is None or entry.edge_index is None:
+                    continue
                 try:
-                    loss = self.gin.train_step(x_replay, edge_index_replay, true_chain)
+                    loss = self.gin.train_step(entry.x, entry.edge_index, true_chain)
                     offline_losses.append(loss)
                 except Exception as e:
-                    print(f"⚠️ GINTrainer offline step error: {e}")
+                    print(f"GINTrainer offline step error: {e}")
 
         self.stats.offline_steps += len(offline_losses)
         mean_offline = sum(offline_losses) / len(offline_losses) if offline_losses else 0.0

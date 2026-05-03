@@ -161,8 +161,10 @@ class EpisodeOutput:
 
     @property
     def is_correct(self) -> bool:
-        """True if predicted_chain exactly matches true_chain."""
-        return self.predicted_chain == self.true_chain
+        """True if predicted_chain matches true_chain; empty true_chain only if pred empty."""
+        if not self.true_chain:
+            return not self.predicted_chain
+        return set(self.predicted_chain) == set(self.true_chain)
 
     @property
     def chain_accuracy(self) -> float:

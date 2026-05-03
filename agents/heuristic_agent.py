@@ -10,14 +10,15 @@ Decision logic:
   6. flag_manipulation (7) if enough evidence
   7. submit_verdict based on contradiction count
 
-NOTE: Observation parsing uses MisInfoForensicsEnv.parse_observation()
+NOTE: Observation parsing uses ForgeEnv.parse_observation()
       to avoid hardcoded index slicing. If the observation layout changes,
       only parse_observation() needs updating — not this agent.
 """
 
 from __future__ import annotations
 import numpy as np
-from env.misinfo_env import N_ACTIONS, MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
+N_ACTIONS = 13
 
 
 class HeuristicAgent:
@@ -36,13 +37,13 @@ class HeuristicAgent:
         Select the next action based on structured observation fields.
 
         Supports both:
-          - R1 (MisInfoForensicsEnv) flat numpy array observations
+          - R1 (ForgeEnv) flat numpy array observations
           - R2 (ForgeEnv) dict observations
 
         When obs is a dict (ForgeEnv), synthesises the parsed fields from
         available keys rather than delegating to the R1 parse_observation API.
         """
-        from env.misinfo_env import ACTIONS
+        from env.forge_env import ACTIONS
 
         # ── Parse observation — dual-format support ───────────────────────────
         if isinstance(obs, dict):
@@ -59,7 +60,7 @@ class HeuristicAgent:
             flagged = len(obs.get("red_chain", [])) >= 2
         else:
             # R1 flat numpy array path
-            parsed = MisInfoForensicsEnv.parse_observation(obs)
+            parsed = ForgeEnv.parse_observation(obs)
             hist = parsed["tool_history"]
             coverage = parsed["evidence_coverage"]
             contra_norm = parsed["contradiction_norm"]

@@ -5,7 +5,7 @@ RandomAgent — uniform random baseline (~0.18 expected reward)
 from __future__ import annotations
 import random
 import numpy as np
-from env.misinfo_env import N_ACTIONS
+N_ACTIONS = 13
 
 
 class RandomAgent:

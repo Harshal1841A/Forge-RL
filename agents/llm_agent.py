@@ -20,7 +20,7 @@ from tenacity import (
 )
 
 import config
-from env.misinfo_env import ACTIONS
+from env.forge_env import ACTIONS
 
 logger = logging.getLogger(__name__)
 

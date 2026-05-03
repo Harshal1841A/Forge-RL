@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import numpy as np
 
-from env.misinfo_env import MisInfoForensicsEnv
+from env.forge_env import ForgeEnv
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def evaluate_agent(
     Evaluate any agent (must implement .act(obs) → int) on a fresh env.
     Returns a metrics dict suitable for leaderboard reporting.
     """
-    env = MisInfoForensicsEnv()
+    env = ForgeEnv()
     true_labels, pred_labels = [], []
     step_counts, efficiencies = [], []
     manip_tp, manip_fp, manip_fn = 0, 0, 0

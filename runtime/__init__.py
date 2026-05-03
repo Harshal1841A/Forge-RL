@@ -1,8 +1,8 @@
 """
 runtime/ — process-wide singletons shared by training, the FastAPI server,
-and both Gymnasium environments (ForgeEnv, MisInfoForensicsEnv).
+and both Gymnasium environments (ForgeEnv, ForgeEnv).
 
-The previous codebase had ForgeEnv (used for training) and MisInfoForensicsEnv
+The previous codebase had ForgeEnv (used for training) and ForgeEnv
 (used by the server's /reset endpoint) holding *separate* GINPredictor
 instances. As a result, training updates in ForgeEnv never affected what the
 deployed endpoint actually scored. This package exposes a single accessor —

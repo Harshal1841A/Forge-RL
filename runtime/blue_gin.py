@@ -1,7 +1,7 @@
 """
 runtime/blue_gin.py — process-wide GINPredictor singleton.
 
-Both ForgeEnv (training) and MisInfoForensicsEnv (deployment) used to
+Both ForgeEnv (training) and ForgeEnv (deployment) used to
 instantiate their own GINPredictor. The trainer's gradient updates therefore
 never touched the deployed model. This module fixes that by exposing one
 shared instance.
