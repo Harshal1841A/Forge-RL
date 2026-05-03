@@ -241,7 +241,7 @@ function makeLog(actionName: string, reward?: number, obs?: TypedObservation, ta
     agent = "Red Team";
   }
 
-  return { id: ++_logCounter, action: actionName, text, ts, reward, agent };
+  return { id: ++_logCounter, action: actionName, text, ts, reward: reward ?? 0, agent };
 }
 
 function _getSessionAgentId(): string {
@@ -423,11 +423,12 @@ export const useForgeStore = create<ForgeState>((set, get) => ({
       const stateRes = await forge.state(episodeId);
       const obs = stateRes.typed_observation;
 
-      const log = makeLog(resolvedActionName, stepRes.reward, obs ?? undefined, selectedTaskName);
+      const stepReward = typeof stepRes.reward === "number" ? stepRes.reward : 0;
+      const log = makeLog(resolvedActionName, stepReward, obs ?? undefined, selectedTaskName);
       set((s) => ({
         logs: [...s.logs, log],
         observation: obs,
-        totalReward: Math.min(0.999, Math.max(0.001, stepRes.reward + s.totalReward)),
+        totalReward: Math.min(0.999, s.totalReward + (stepRes.reward || 0)),
         done: stepRes.done,
         status: stepRes.done ? "OPTIMAL" : "ACTIVE",
       }));

@@ -244,6 +244,7 @@ class ForgeEnv:
         x, edge_index = self._graph_to_tensors()
         red_action = self.red_agent.propose_action(x, edge_index, budget_remaining)
 
+        r_step = 0.0
         if red_action is not None:
             # H2: Apply action to real ClaimGraph (not just text-append).
             self._apply_red_action_to_graph(red_action)
@@ -289,7 +290,9 @@ class ForgeEnv:
             self._done = True
             self._episode_output = ep_output
         else:
-            reward = 0.0
+            # Return dense per-step reward from RedStepReward instead of 0.0
+            # r_step is already computed above and appended to _red_step_rewards
+            reward = round(float(r_step), 5) if red_action is not None else 0.001
             ep_output = None
 
         obs = self._build_obs()

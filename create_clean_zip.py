@@ -1,9 +1,9 @@
 import zipfile
 import os
+import shutil
 
-def create_zip():
-    zip_name = 'forge_ma_final.zip'
-    exclude_list = ['graphify-out', 'uv.lock', '.env', 'node_modules', '.next', '__pycache__', '.git', 'forge_ma_final.zip']
+def create_zip(zip_name):
+    exclude_list = ['graphify-out', 'uv.lock', '.env', 'node_modules', '.next', '__pycache__', '.git', 'forge_ma_final.zip', 'forge_ma_final_submission.zip']
     
     with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk('.'):
@@ -21,5 +21,9 @@ def create_zip():
                 zipf.write(full_path, rel_path)
 
 if __name__ == '__main__':
-    create_zip()
+    create_zip('forge_ma_final.zip')
     print("forge_ma_final.zip created successfully.")
+    
+    # Also create the submission version
+    create_zip('forge_ma_final_submission.zip')
+    print("forge_ma_final_submission.zip created successfully.")
