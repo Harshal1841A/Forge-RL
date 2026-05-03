@@ -87,7 +87,7 @@ def auto_grade_episode(episode_id: str, record: dict) -> None:
                 agent_id = record.get("agent_id", "anonymous")
                 correct  = ep_out.is_correct
                 total_rew = float(ep_out.reward_total)
-                comp = round(max(0.001, min(0.999, total_rew)), 4)
+                comp = round(max(0.001, min(0.999, (total_rew + 1.0) / 2.0)), 4)
                 with get_db() as conn:
                     conn.execute(
                         "INSERT OR REPLACE INTO grades "
@@ -240,7 +240,7 @@ async def get_grade(episode_id: str):
         eff_b  = round(float(ep_out.budget_total), 4)
         cov_b  = round(float(ep_out.f1_component) * 0.1, 4)
         exp_b  = round(float(ep_out.expert_bonus), 4)
-        comp   = _clip_open_interval(total_rew)
+        comp   = _clip_open_interval((total_rew + 1.0) / 2.0)
         ted_g  = _clip_open_interval(float(ep_out.ted_component))
 
         grade_breakdown = {
@@ -274,7 +274,7 @@ async def get_grade(episode_id: str):
             evidence_coverage=round(float(coverage), 4),
             steps_used=steps,
             efficiency_score=_clip_open_interval(eff_b + 0.5),
-            total_reward=_clip_open_interval(total_rew),
+            total_reward=total_rew,
             grade_breakdown=grade_breakdown,
         )
 
