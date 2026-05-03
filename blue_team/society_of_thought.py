@@ -154,10 +154,12 @@ def _historian_analyze(claim: str, gin_feedback: str = "") -> dict:
     has_temporal = any(kw in claim_lower for kw in temporal_keywords)
     
     if has_temporal and (verdict == "unknown" or not converted_chain):
-        verdict = "misinfo"
+        verdict = "out_of_context"
         confidence = max(confidence, 0.72)
         if PrimitiveType.TEMPORAL_SHIFT not in converted_chain:
             converted_chain.append(PrimitiveType.TEMPORAL_SHIFT)
+        if PrimitiveType.CONTEXT_STRIP not in converted_chain:
+            converted_chain.append(PrimitiveType.CONTEXT_STRIP)
     
     return {
         "verdict": verdict,
@@ -391,7 +393,7 @@ class SocietyOfThought:
 
         def _run_graph_specialist():
             return {
-                "verdict": gin_res.get("verdict", "unknown") if len(gin_res["ordered_chain"]) > 0 else "unknown",
+                "verdict": gin_res.get("verdict", "real") if len(gin_res["ordered_chain"]) > 0 else "real",
                 "predicted_chain": gin_res["ordered_chain"],
                 "rationale": "Topology-based GIN prediction",
                 "confidence": gin_res.get("confidence", 0.5),
@@ -483,10 +485,20 @@ class SocietyOfThought:
             idx = verdicts.index(top_v)
             return ConsensusResult(top_v, chains[idx], "majority_3", 0.05, dissenting_agents, dissenting_rationales)
         elif top_count == 2:
-            # FIX R2: return graph_specialist verdict, not the unmappable
-            # internal string "trigger_expert" which breaks verdict_correct checks.
+            best_chain = gs_chain
+            best_conf = -1.0
+            for i, res in enumerate(results):
+                if res.get("verdict") == top_v:
+                    conf = float(res.get("confidence", 0.0))
+                    if conf > best_conf:
+                        best_conf = conf
+                        best_chain = chains[i]
             gs_verdict = results[gs_idx].get("verdict", "unknown") if results else "unknown"
-            return ConsensusResult(gs_verdict, gs_chain, "split_2_2", -0.05, dissenting_agents, dissenting_rationales)
+            if top_v == "unknown":
+                top_v = gs_verdict
+                best_chain = gs_chain
+            return ConsensusResult(top_v, best_chain, "split_2_2", -0.05,
+                                   dissenting_agents, dissenting_rationales)
         else:
             return ConsensusResult("unknown", gs_chain, "all_different", -0.05, names, [r.get("rationale", "") for r in results])
 
@@ -513,17 +525,51 @@ def _make_dummy_graph():
 def _graph_from_claim_graph(claim_graph):
     import torch
     from env.node_features import build_node_features
-    n_nodes = len(claim_graph.nodes)
+
+    nodes = (
+        list(claim_graph.nodes.values())
+        if hasattr(claim_graph.nodes, "values")
+        else list(claim_graph.nodes)
+    )
+    n_nodes = len(nodes)
     if n_nodes == 0:
         return _make_dummy_graph()
-    node_features = []
-    for node in claim_graph.nodes:
-        feat = build_node_features(node, 10)
-        node_features.append(feat)
-    class _RealGraph: pass
+
+    node_id_to_idx = {}
+    for i, n in enumerate(nodes):
+        nid = getattr(n, "id", getattr(n, "node_id", None))
+        if nid is not None:
+            node_id_to_idx[str(nid)] = i
+
+    node_features = [build_node_features(n, 10) for n in nodes]
+
+    src_list, dst_list = [], []
+    edges = (
+        list(claim_graph.edges.values())
+        if hasattr(claim_graph.edges, "values")
+        else list(claim_graph.edges)
+    )
+    for edge in edges:
+        s_raw = getattr(edge, "source_id", getattr(edge, "src_id", None))
+        t_raw = getattr(edge, "target_id", getattr(edge, "tgt_id", None))
+        s = node_id_to_idx.get(str(s_raw)) if s_raw is not None else None
+        t = node_id_to_idx.get(str(t_raw)) if t_raw is not None else None
+        if s is not None and t is not None:
+            src_list.append(s)
+            dst_list.append(t)
+            src_list.append(t)
+            dst_list.append(s)
+
+    class _RealGraph:
+        pass
+
     g = _RealGraph()
     g.x = torch.tensor(node_features, dtype=torch.float32)
-    g.edge_index = torch.zeros((2, 0), dtype=torch.long)
+    g.edge_index = (
+        torch.tensor([src_list, dst_list], dtype=torch.long)
+        if src_list
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
     g.batch = torch.zeros(n_nodes, dtype=torch.long)
     return g
 

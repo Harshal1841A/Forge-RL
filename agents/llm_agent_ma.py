@@ -169,6 +169,18 @@ class LLMAgent:
             if _PT.SATIRE_REFRAME not in chain:
                 chain.append(_PT.SATIRE_REFRAME)
 
+        if verdict == "unknown":
+            _fake_kws = [
+                "secret", "hidden", "suppressed", "leaked", "cover", "hoax",
+                "fabricat", "fake", "retract", "satire", "parody",
+                "2015", "2016", "2017", "2018", "2019", "mislabelled",
+                "old video", "old footage", "repost",
+            ]
+            if not any(kw in prompt_lower for kw in _fake_kws):
+                verdict = "real"
+                confidence = 0.70
+                rationale = "No manipulation signals detected — classified as real."
+
         response = json.dumps({
             "verdict": verdict,
             "predicted_chain": chain,

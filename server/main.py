@@ -173,32 +173,38 @@ def create_app() -> FastAPI:
         seed = request.seed_claim.lower()
 
         # ── Lightweight real-news classifier ────────────────────────────────
-        # Heuristics that strongly suggest a legitimate, factual claim:
         REAL_SIGNALS = [
-            # Authoritative source domains
-            r"\b(reuters|ap news|bbc|cnn|nytimes|guardian|npr|who\.int|cdc\.gov|nasa\.gov|"
-            r"fda\.gov|whitehouse\.gov|un\.org|nature\.com|science\.org|pubmed)\b",
-            # Factual phrasing patterns
-            r"\b(according to|confirmed by|official(ly)?|announced|published|reported by|"
-            r"study shows|research (shows|confirms|finds)|data (shows|reveals))\b",
-            # Geopolitical/breaking-news verbs that are often factual
-            r"\b(closed|opened|signed|approved|elected|deployed|arrested|launched|"
-            r"summit|treaty|ceasefire|sanctions)\b",
+            r"\b(reuters|ap news|bbc|cnn|nytimes|guardian|npr|who\.int|cdc\.gov|"
+            r"nasa\.gov|fda\.gov|whitehouse\.gov|un\.org|nature\.com|science\.org|"
+            r"pubmed|wikipedia|britannica)\b",
+            r"\b(according to|confirmed by|officially?|announced|published|"
+            r"reported by|study shows|research (shows|confirms|finds)|"
+            r"data (shows|reveals)|scientists (say|found|confirm))\b",
+            r"\b(closed|opened|signed|approved|elected|deployed|arrested|"
+            r"launched|summit|treaty|ceasefire|sanctions|is (the )?capital|"
+            r"borders|population|founded|established|located in|situated)\b",
+            r"\b(capital (of|city)|largest (city|country|ocean)|"
+            r"president of|prime minister of|currency of|language of|"
+            r"population of|area of|founded in|independence)\b",
         ]
-        # Manipulation signals — if any present, run Red Team
         FAKE_SIGNALS = [
             r"\b(secret(ly)?|hidden|suppressed|cover.?up|they don'?t want you|"
             r"mainstream media (won'?t|refuses)|banned|censored|leaked documents|"
-            r"shocking|you won'?t believe|wake up|sheeple)\b",
-            r"\b(100%|proven|undeniable|irrefutable)\b",
+            r"shocking|you won'?t believe|wake up|sheeple|deep state|plandemic|"
+            r"microchip|5g|chemtrail|flat earth|crisis actor)\b",
+            r"\b(100%|proven|undeniable|irrefutable|always|never)\b",
             r"(!!!|\?\?\?)",
+            r"\b(mislabelled|mislabeled|old (video|photo|footage)|"
+            r"recirculated|reposted|from \d{4}|taken in \d{4})\b",
         ]
+        real_score = sum(1 for pat in REAL_SIGNALS
+                         if re.search(pat, seed, re.IGNORECASE))
+        fake_score = sum(1 for pat in FAKE_SIGNALS
+                         if re.search(pat, seed, re.IGNORECASE))
+        is_real = (real_score >= 1 and fake_score == 0) or \
+                  (real_score == 0 and fake_score == 0)
 
-        real_score = sum(1 for pat in REAL_SIGNALS if re.search(pat, seed))
-        fake_score = sum(1 for pat in FAKE_SIGNALS if re.search(pat, seed))
-
-        # If claim looks real AND has no manipulation signals → classify REAL immediately
-        if real_score >= 1 and fake_score == 0:
+        if is_real:
             episode_id = f"live-{uuid.uuid4().hex[:8]}"
             return {
                 "seed_claim": request.seed_claim,

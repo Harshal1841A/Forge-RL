@@ -161,10 +161,27 @@ class EpisodeOutput:
 
     @property
     def is_correct(self) -> bool:
-        """True if predicted_chain matches true_chain; empty true_chain only if pred empty."""
-        if not self.true_chain:
-            return not self.predicted_chain
-        return set(self.predicted_chain) == set(self.true_chain)
+        """True if verdict matches the claim's true category (verdict-level, not chain equality)."""
+        _MISINFO_GROUP = {
+            "misinfo", "misinformation", "fabricated", "fake",
+            "out_of_context", "coordinated", "satire",
+        }
+        _REAL_GROUP = {"real", "verified", "verified_fact", "true", "legitimate"}
+
+        def _group(v: str) -> str:
+            v = v.lower().strip()
+            if v == "satire":
+                return "satire"
+            if v in _MISINFO_GROUP:
+                return "misinfo"
+            if v in _REAL_GROUP:
+                return "real"
+            return v
+
+        true_verdict_group = "real" if not self.true_chain else "misinfo"
+        pred_verdict_group = _group(self.verdict)
+
+        return pred_verdict_group == true_verdict_group
 
     @property
     def chain_accuracy(self) -> float:

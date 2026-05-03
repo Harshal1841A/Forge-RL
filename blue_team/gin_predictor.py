@@ -231,7 +231,7 @@ class GINPredictor:
                 "ordered_chain": [],
                 "confidence": 0.0,
                 "uncertainty": np.zeros(8),
-                "verdict": "unknown",
+                "verdict": "real",
             }
 
         preds = []
@@ -260,7 +260,7 @@ class GINPredictor:
             # ordered_chain is already sorted by descending presence_prob
             verdict = _PRIM_TO_VERDICT.get(ordered_chain[0], "misinfo")
         else:
-            verdict = "unknown"
+            verdict = "real"
 
         return {
             "presence_probs": presence_probs,
@@ -291,7 +291,7 @@ class GINPredictor:
                 "ordered_chain": [],
                 "confidence": 0.0,
                 "uncertainty": np.zeros(8),
-                "verdict": "unknown",
+                "verdict": "real",
             }
             return [empty for _ in range(n_agents)]
 
@@ -314,7 +314,7 @@ class GINPredictor:
                 if chain:
                     verdict = _PRIM_TO_VERDICT.get(chain[0], "misinfo")
                 else:
-                    verdict = "unknown"
+                    verdict = "real"
                 results.append({
                     "presence_probs": probs,
                     "ordered_chain": chain,

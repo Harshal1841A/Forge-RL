@@ -175,7 +175,7 @@ export function DashboardPreviewSection() {
       submit_verdict_satire:        { verdict: "satire",        correct: true },
       submit_verdict_out_of_context:{ verdict: "out_of_context",correct: true },
     };
-    return verdictMap[action] ?? { verdict: "misinfo", correct: true };
+    return verdictMap[action] ?? { verdict: "unknown", correct: false };
   })() : null;
   const displayGrade = grade ?? syntheticGrade;
 
@@ -421,7 +421,17 @@ export function DashboardPreviewSection() {
                       <motion.div key="grade" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-start gap-1">
                         <p className={`font-bold text-sm ${displayGrade.correct ? "text-emerald-400" : "text-red-400"}`}>
                           {displayGrade.correct
-                            ? (displayGrade.verdict === "misinfo" || displayGrade.verdict === "misinformation" || displayGrade.verdict === "fabricated" ? "✓ FAKE NEWS DETECTED" : displayGrade.verdict === "satire" ? "~ SATIRE IDENTIFIED" : displayGrade.verdict === "out_of_context" ? "⚠ OUT OF CONTEXT" : "✓ REAL NEWS VERIFIED")
+                            ? (displayGrade.verdict === "misinfo" || displayGrade.verdict === "misinformation"
+                                ? "✓ FAKE NEWS DETECTED"
+                                : displayGrade.verdict === "fabricated"
+                                  ? "✓ FABRICATED DETECTED"
+                                  : displayGrade.verdict === "satire"
+                                    ? "~ SATIRE IDENTIFIED"
+                                    : displayGrade.verdict === "out_of_context"
+                                      ? "⚠ OUT OF CONTEXT"
+                                      : displayGrade.verdict === "real" || displayGrade.verdict === "verified"
+                                        ? "✓ REAL NEWS VERIFIED"
+                                        : "⚠ INVESTIGATING...")
                             : "✗ INCORRECT PREDICTION"}
                         </p>
                         <p className="text-slate-300 text-xs font-semibold drop-shadow-sm">Verdict: <span className="text-white font-bold">{displayGrade.verdict ?? "—"}</span></p>

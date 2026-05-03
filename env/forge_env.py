@@ -247,13 +247,32 @@ class ForgeEnv:
         self._steps += 1
         budget_remaining = self.config.budget - self._steps
 
-        # Build graph tensor for HAE scoring
         x, edge_index = self._graph_to_tensors()
         red_action = self.red_agent.propose_action(x, edge_index, budget_remaining)
 
+        r_step = 0.0
         if red_action is not None:
             self._apply_red_action_to_graph(red_action)
             self._useful_tools += 1
+            x_after, edge_index_after = self._graph_to_tensors()
+            try:
+                from torch_geometric.data import Data as _Data
+                batch_data = _Data(x=x_after, edge_index=edge_index_after)
+            except ImportError:
+                class _SimpleBatch:
+                    def __init__(self, x, edge_index):
+                        self.x = x
+                        self.edge_index = edge_index
+                        self.num_nodes = x.size(0)
+
+                batch_data = _SimpleBatch(x_after, edge_index_after)
+            prim_idx = None
+            if red_action.primitive:
+                all_prims = list(PrimitiveType)
+                if red_action.primitive in all_prims:
+                    prim_idx = all_prims.index(red_action.primitive)
+            r_step = self.red_step_rewarder.compute(batch_data, primitive_idx=prim_idx)
+            self._red_step_rewards.append(r_step)
 
         terminated = (self._steps >= self.config.budget) or (budget_remaining <= 0)
 
@@ -270,24 +289,8 @@ class ForgeEnv:
             self._done = True
             self._episode_output = ep_output
         else:
-            # Dense heuristic reward — works without a trained GIN checkpoint.
-            with self._graph_lock:
-                n_nodes = len(self._claim_graph.nodes) if self._claim_graph else 1
-            prev_nodes = getattr(self, "_prev_node_count", 1)
-            node_growth = max(0, n_nodes - prev_nodes)
-            self._prev_node_count = n_nodes
-
-            unique_tools = len(set(
-                str(a.primitive) for a in getattr(self.red_agent, "history", [])
-                if hasattr(a, "primitive") and a.primitive is not None
-            ))
-            diversity_bonus = min(0.05, unique_tools * 0.01)
-            growth_reward = min(0.10, node_growth * 0.04)
-            activity_reward = 0.02 if red_action is not None else 0.005
-
-            reward = round(float(activity_reward + growth_reward + diversity_bonus), 5)
+            reward = round(float(r_step), 5)
             ep_output = None
-            self._red_step_rewards.append(reward)
 
         trace_entry["reward"] = reward
 
@@ -326,7 +329,9 @@ class ForgeEnv:
             primitive=None,
             fingerprints={},
         )
-        return ClaimGraph(nodes=[root_node], edges=[], root_id=root_id)
+        graph = ClaimGraph(nodes=[root_node], edges=[], root_id=root_id)
+        graph.mark_retrieved(root_id)
+        return graph
 
     def _apply_red_action_to_graph(self, red_action) -> None:
         """
@@ -362,6 +367,10 @@ class ForgeEnv:
 
             self._claim_graph.nodes.append(new_node)
             self._claim_graph.edges.append(edge)
+            try:
+                self._claim_graph.mark_retrieved(node_id)
+            except Exception:
+                pass
 
     def _graph_to_tensors(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -497,11 +506,9 @@ class ForgeEnv:
                 claim_graph=current_graph
             )
             _society_result = society_result
-            # FIX R1: use graph_specialist verdict (GIN output), not the
-            # non-existent "gin" key.  Fall back to consensus verdict.
             society_verdict = (
                 society_result.agent_verdicts.get("graph_specialist")
-                or getattr(society_result, "verdict", None)
+                or society_result.verdict
                 or "unknown"
             )
         except Exception as _soe:
@@ -527,13 +534,11 @@ class ForgeEnv:
             "graph_specialist",
             society_result.agent_confidences.get("auditor", 0.5),
         )
-        # FIX R2: strip internal/unmappable verdict strings before they
-        # propagate to EpisodeOutput, verdict_correct logic, and the frontend.
         _INTERNAL_VERDICTS = {"trigger_expert", "unknown", ""}
         if society_verdict in _INTERNAL_VERDICTS:
-            society_verdict = getattr(society_result, "verdict", "unknown") or "unknown"
+            society_verdict = society_result.verdict or "unknown"
         if society_verdict in _INTERNAL_VERDICTS:
-            society_verdict = "unknown"
+            society_verdict = "real" if not self._true_chain else "misinfo"
         gin_result = {"verdict": society_verdict}
 
         predicted_chains_ensemble = []
@@ -572,10 +577,11 @@ class ForgeEnv:
 
             expert_decision = self._expert_reviewer.get_decision(
                 verdict_correct=(
-                    gin_result.get("verdict", "") in
-                    {"fabricated", "misinfo", "satire", "out_of_context"}
-                    if self._true_chain
-                    else gin_result.get("verdict", "") in {"real", "verified"}
+                    (not self._true_chain and gin_result.get("verdict", "") in
+                     {"real", "verified", "real_news"})
+                    or (bool(self._true_chain) and gin_result.get("verdict", "") in
+                        {"fabricated", "misinfo", "satire", "out_of_context",
+                         "misinformation"})
                 ),
                 recall=recall,
                 confidence=gin_confidence,

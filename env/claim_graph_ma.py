@@ -103,6 +103,13 @@ class ClaimGraph:
             return "out_of_context"
         return "fabricated"
 
+    def mark_retrieved(self, node_id: str) -> None:
+        """Mark a node as retrieved so evidence_coverage reflects investigation progress."""
+        for n in self.nodes:
+            if n.id == node_id:
+                n.is_retrieved = True
+                return
+
     def to_json(self) -> dict:
         return {
             "nodes": [
