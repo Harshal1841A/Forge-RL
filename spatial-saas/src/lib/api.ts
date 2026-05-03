@@ -4,9 +4,9 @@
  */
 
 const baseFromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
-const BASE = baseFromEnv
+const BASE = baseFromEnv !== undefined && baseFromEnv !== ""
   ? baseFromEnv.replace(/\/+$/, "")
-  : "http://localhost:7860"; // Default for FORGE-MA Forensic Platform
+  : ""; // Default to relative paths to use Next.js rewrites
 
 function apiUrl(path: string): string {
   return BASE ? `${BASE}${path}` : path;
