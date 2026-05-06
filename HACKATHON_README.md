@@ -1,56 +1,69 @@
-# FORGE-MA Submission Runbook
+# FORGE-RL Submission Runbook
 
 This file is a strict evaluator guide for quickly validating the environment against submission requirements.
 
 ## 1) Public Entry Point
 
 - Hugging Face Space: [https://huggingface.co/spaces/NeuralHU/forge-rl](https://huggingface.co/spaces/NeuralHU/forge-rl)
-- Space type: Docker, combined frontend (`spatial-saas`) + FastAPI backend (`server.main`)
+- Space type: Docker — combined frontend (`spatial-saas`) + FastAPI backend (`server.main`)
 
 ## 2) OpenEnv API
 
-The backend serves OpenEnv-style interaction routes:
+The backend serves OpenEnv-compatible interaction routes:
 
-- `POST /reset`
-- `POST /step`
-- `GET /state`
-- `GET /actions`
-- `GET /tasks`
-- `GET /episodes/{id}/grade`
+| Endpoint | Method | Description |
+|---|---|---|
+| `/reset` | POST | Start a new investigation episode |
+| `/step` | POST | Take a forensic action (0–12) |
+| `/state` | GET | Current episode state |
+| `/actions` | GET | Available action list |
+| `/tasks` | GET | Task registry |
+| `/episodes/{id}/grade` | GET | Score a completed episode |
 
-Interactive API docs are available at `/docs` on local backend runs.
+Interactive API docs: `http://localhost:7860/docs` (local) or the Space `/docs` endpoint.
 
 ## 3) Local Reproduction
 
 ```bash
+# 1. Install Python dependencies
 pip install -r requirements.txt
-npm --prefix spatial-saas install
+
+# 2. Configure API keys (all free — see .env.example for signup links)
+cp .env.example .env
+# Edit .env with your Groq / Cerebras / Mistral / OpenRouter keys
+
+# 3. Start backend
 python -m uvicorn server.main:app --host 0.0.0.0 --port 7860
-```
 
-In a second terminal:
-
-```bash
+# 4. Start frontend (separate terminal)
+npm --prefix spatial-saas install
 npm --prefix spatial-saas run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000` for the investigation dashboard.
 
-## 4) RL Training Script / Notebook
+## 4) RL Training Notebooks
 
-- Primary notebook: `training/forge_grpo_colab.ipynb`
-- Alternate notebook: `notebooks/trl_forge_ma.ipynb`
-- Frameworks used in notebook flow: TRL/GRPO (and Unsloth path for supported GPUs)
+| Notebook | Location | Notes |
+|---|---|---|
+| Primary (GRPO) | `notebooks/trl_forge_ma.ipynb` | Kaggle / Colab compatible |
+| Self-play | `notebooks/forge_combined_selfplay (1).ipynb` | Red vs Blue adversarial run |
+
+Frameworks: TRL/GRPO. Unsloth path available for supported GPUs.
 
 ## 5) Included Evidence
 
-- Baseline metrics: `baselines/results.json`
-- Training log snapshot: `checkpoints/training_log.json`
+| File | Contents |
+|---|---|
+| `baselines/results.json` | Baseline agent metrics |
+| `checkpoints/training_log.json` | Training log snapshot |
+| `assets/grpo_reward_curve.png` | Reward curve (Qwen 0.5B, 100 steps) |
 
-Current training evidence in-repo is lightweight; for full verification, re-run the notebook and regenerate curves/artifacts in your own runtime.
+For full verification, re-run a notebook and regenerate curves in your own runtime.
 
 ## 6) Writeup Material
 
 - Technical writeup: `docs/blog_post.md`
+- Impact document: `REAL_WORLD_IMPACT.md`
 
 No large video binaries are included in-repo.

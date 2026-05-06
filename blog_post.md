@@ -1,54 +1,73 @@
-# Unmasking the Truth: How FORGE-RL Tackles Coordinated Misinformation
+# Unmasking the Architecture: How FORGE-RL Models Misinformation as a Sequential Investigation
 
-*By the FORGE-MA Engineering Team*
+*By the FORGE-RL Engineering Team — META AI Hackathon 2026*
 
-Misinformation rarely appears as a single false sentence. It spreads as a coordinated sequence of manipulations: source laundering, quote fabrication, context stripping, and amplification. FORGE-MA was built to evaluate that process as an RL investigation problem instead of a one-shot classification task.
+Misinformation rarely appears as a single false sentence. It spreads as a coordinated sequence of manipulations: source laundering, quote fabrication, context stripping, and amplification across networks. FORGE-RL was built to evaluate that process as a reinforcement learning investigation problem, not a one-shot classification task.
 
-## Why We Built FORGE-MA
+---
 
-Most fact-check systems return only a final label. FORGE-MA models the full investigation loop:
+## Why Sequential Investigation, Not Classification?
 
-- choose forensic actions (`query_source`, `trace_origin`, `network_cluster`, etc.),
-- gather evidence over multiple steps,
-- submit a verdict with explicit reasoning signals.
+Most fact-check systems return a final label — true or false. That misrepresents how human analysts actually work.
 
-The environment is OpenEnv-compatible and exposed through a FastAPI interface, with a Space deployment that combines backend and frontend in one runnable app.
+FORGE-RL models the full investigation loop:
 
-## Society of Thought + Graph Signals
+- Choose forensic actions (`query_source`, `cross_reference`, `network_cluster`, `temporal_audit`, etc.)
+- Gather evidence across multiple steps (budget: 10 actions per episode)
+- Submit a verdict — with explicit reward signals tied to accuracy, efficiency, and evidence coverage
 
-A single reasoning stream can overfit to its own assumptions. FORGE-MA uses a multi-role analysis pattern:
+The environment is OpenEnv-compatible, exposed through a FastAPI interface, and deployed as a Hugging Face Space combining the backend and the Next.js forensic dashboard in a single Docker container.
 
-- Forensic auditor for source validation,
-- Context historian for temporal consistency checks,
-- Narrative critic for rhetorical manipulation,
-- Graph-specialist path for relational claim/evidence structure.
+---
 
-These roles are paired with graph-informed features and stepwise rewards so agents are pushed to investigate before deciding.
+## Multi-Agent Roles
 
-## Plandemic-Style Campaign Scenario
+A single reasoning stream can overfit to its own assumptions. FORGE-RL uses a multi-role analysis pattern where four independent LLMs each hold a distinct investigative perspective:
 
-One demonstration scenario focuses on coordinated health misinformation patterns. The workflow is:
+| Role | Provider | Responsibility |
+|---|---|---|
+| Forensic Auditor | Groq / Llama-3 70B | Source credibility validation |
+| Context Historian | Cerebras / Llama-3.1 70B | Temporal consistency checks |
+| Narrative Critic | Mistral / mistral-small | Rhetorical manipulation detection |
+| Expert Reviewer | OpenRouter / Llama-3 8B | Final verdict arbitration |
 
-1. cross-reference claims against trusted sources,
-2. inspect propagation and clustering behavior,
-3. evaluate manipulation signatures,
-4. submit a final verdict.
+These roles are paired with graph-informed features from the GNN policy (`agents/gnn_policy.py`) and stepwise rewards, so agents are structurally pushed to investigate before deciding.
 
-The target is not only "is this false?" but "which manipulation primitives were used?".
+Using different model providers per role is an intentional design choice: it prevents shared-model bias where a single LLM's internal assumptions dominate the verdict.
 
-## Training and Current Evidence
+---
 
-The repository includes:
+## A Concrete Scenario: Coordinated Health Misinformation
 
-- baseline metrics in `baselines/results.json`,
-- GRPO/TRL training notebooks in `training/forge_grpo_colab.ipynb` and `notebooks/forge_combined_selfplay (1).ipynb`,
-- a training-log snapshot in `checkpoints/training_log.json`.
+One registered task (`plandemic`, difficulty: hard) focuses on coordinated health misinformation patterns. The investigation workflow a trained agent learns:
 
-This provides an auditable starting point for judges to rerun experiments with their own compute/runtime settings.
+1. `cross_reference` — check claim against trusted health sources
+2. `network_cluster` — inspect propagation and bot coordination patterns
+3. `flag_manipulation` — evaluate synthetic media signatures
+4. `citation_check` — verify cited WHO or institutional sources actually exist
+5. `submit_verdict_misinfo` — return verdict with accumulated evidence
+
+The target is not only "is this false?" but "which manipulation primitives were used to construct it?" — the output is a deception chain, not just a label.
+
+---
+
+## Training Evidence
+
+| Artifact | Location |
+|---|---|
+| Baseline agent metrics | `baselines/results.json` |
+| GRPO training notebook | `notebooks/trl_forge_ma.ipynb` |
+| Self-play notebook | `notebooks/forge_combined_selfplay (1).ipynb` |
+| Training log snapshot | `checkpoints/training_log.json` |
+| Reward curve image | `assets/grpo_reward_curve.png` |
+
+To reproduce training results: open `notebooks/trl_forge_ma.ipynb` in Kaggle (30 free GPU hours/week) and run all cells. Expected TED score at step 100: ~0.20 (random baseline: ~0.11).
+
+---
 
 ## Links
 
-- Hugging Face Space: https://huggingface.co/spaces/NeuralHU/forge-rl
-- Main README: `README.md`
-- Submission runbook: `HACKATHON_README.md`
-- Technical writeup: `docs/blog_post.md`
+- [Hugging Face Space](https://huggingface.co/spaces/NeuralHU/forge-rl)
+- [GitHub Repository](https://github.com/Godhand-Arnav/Scalar-finals)
+- [Main README](../README.md)
+- [Submission Runbook](../HACKATHON_README.md)

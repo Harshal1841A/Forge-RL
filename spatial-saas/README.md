@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FORGE-RL Investigation Dashboard
 
-## Getting Started
+Next.js frontend for the FORGE-RL forensic investigation platform. Provides a real-time visual interface for monitoring agent investigations, displaying evidence graphs, and reviewing verdicts.
 
-First, run the development server:
+## What This Is
+
+This is **not** a generic Next.js app. It is the visual layer of FORGE-RL:
+
+- **Live investigation feed** — streams step-by-step agent actions from the FastAPI backend via SSE
+- **Evidence graph** — 3D force-directed graph (Three.js / React Three Fiber) showing claim-source relationships
+- **Reward dashboard** — real-time TED score and cumulative reward display
+- **Deepfake viewer** — image forensics results panel fed by `/routes/deepfake.py`
+- **Multi-agent status panel** — shows which of the four LLM agents (Auditor, Historian, Critic, Reviewer) is currently active
+
+## Prerequisites
+
+- Node.js ≥ 18
+- Backend running at `http://localhost:7860` (see root `README.md` for setup)
+
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The backend URL is configured via `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:7860`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Key Directories
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+spatial-saas/
+├── src/
+│   ├── app/             # Next.js App Router pages
+│   │   ├── visual/      # 3D graph investigation view
+│   │   └── api/         # Client-side API routes (graph-show, etc.)
+│   ├── store/
+│   │   └── forgeStore.ts  # Zustand state — episode, rewards, agent status
+│   └── components/      # Investigation UI components
+```
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Optional — defaults to localhost:7860 if not set
+NEXT_PUBLIC_API_URL=http://localhost:7860
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Production Build
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This frontend is bundled into the Docker image at the root of the repo. It is **not** deployed to Vercel — it runs as a static export served by the FastAPI backend.
 
-## Deploy on Vercel
+```bash
+npm run build   # for local production testing only
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See the root [README.md](../README.md) and [HACKATHON_README.md](../HACKATHON_README.md) for full system setup.
